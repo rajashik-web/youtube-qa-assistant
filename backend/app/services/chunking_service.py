@@ -1,62 +1,156 @@
+def split_text(
+    text: str,
+    max_words: int = 80,
+):
+    words = text.split()
+
+    return [
+        " ".join(
+            words[i:i + max_words]
+        )
+        for i in range(
+            0,
+            len(words),
+            max_words,
+        )
+    ]
+
+
 def create_chunks(
     segments,
-    max_words=250,
+    max_words=180,
+    overlap_words=30,
 ):
-    chunks = []
+    """
+    Create smaller overlapping chunks for better RAG retrieval.
+    """
 
-    current_texts = []
-    current_word_count = 0
-    chunk_start_time = None
-    chunk_end_time = None
+    prepared_segments = []
 
     for segment in segments:
 
         text = segment["text"]
-        word_count = len(text.split())
+        words = text.split()
 
-        # Start a new chunk if adding this segment
-        # would exceed max_words
-        if (
-            current_word_count + word_count > max_words
-            and current_texts
-        ):
+        # Skip empty segments
+        if not words:
+            continue
 
-            chunks.append(
-                {
-                    "text": " ".join(current_texts),
-                    "start_time": chunk_start_time,
-                    "end_time": chunk_end_time,
-                }
+        # Split very long segments
+        if len(words) > max_words:
+
+            pieces = split_text(
+                text,
+                max_words=max_words,
             )
 
-            # Reset for next chunk
-            current_texts = []
-            current_word_count = 0
-            chunk_start_time = None
-            chunk_end_time = None
+            total_duration = (
+                segment["duration"]
+            )
 
-        # Start time of the chunk
+            piece_duration = (
+                total_duration / len(pieces)
+            )
+
+            for i, piece in enumerate(pieces):
+
+                prepared_segments.append(
+                    {
+                        "text": piece,
+                        "start": (
+                            segment["start"]
+                            + i * piece_duration
+                        ),
+                        "duration": piece_duration,
+                    }
+                )
+
+        else:
+
+            prepared_segments.append(
+                segment
+            )
+
+    # -----------------------------------
+    # Create overlapping chunks
+    # -----------------------------------
+
+    chunks = []
+
+    current_words = []
+    chunk_start_time = None
+    chunk_end_time = None
+
+    for segment in prepared_segments:
+
+        words = segment["text"].split()
+
         if chunk_start_time is None:
             chunk_start_time = segment["start"]
 
-        current_texts.append(text)
+        current_words.extend(words)
 
-        current_word_count += word_count
-
-        # Calculate segment end time
         chunk_end_time = (
             segment["start"]
             + segment["duration"]
         )
 
-    # Add the final chunk
-    if current_texts:
+        # Create chunk
+        if len(current_words) >= max_words:
+
+            chunk_text = " ".join(
+                current_words[:max_words]
+            )
+
+            chunks.append(
+                {
+                    "text": chunk_text,
+                    "start_time": chunk_start_time,
+                    "end_time": chunk_end_time,
+                }
+            )
+
+            # Keep overlap
+            current_words = (
+                current_words[
+                    max_words - overlap_words:
+                ]
+            )
+
+            chunk_start_time = (
+                segment["start"]
+            )
+
+    # Final chunk
+    if current_words:
+
         chunks.append(
             {
-                "text": " ".join(current_texts),
+                "text": " ".join(current_words),
                 "start_time": chunk_start_time,
                 "end_time": chunk_end_time,
             }
         )
 
     return chunks
+
+def count_video_chunks(
+    self,
+    video_id: str,
+):
+    result = self.client.count(
+        collection_name=self.COLLECTION_NAME,
+        count_filter=Filter(
+            must=[
+                FieldCondition(
+                    key="video_id",
+                    match=MatchValue(
+                        value=video_id,
+                    ),
+                )
+            ]
+        ),
+        exact=True,
+    )
+
+    return result.count
