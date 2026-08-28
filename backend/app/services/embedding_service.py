@@ -4,13 +4,21 @@ from sentence_transformers import SentenceTransformer
 class EmbeddingService:
 
     def __init__(self):
+
         self.model = SentenceTransformer(
             "all-MiniLM-L6-v2"
         )
 
-    def embed_documents(self, texts: list[str]):
+
+    def embed_documents(
+        self,
+        texts: list[str],
+        batch_size: int = 32,
+    ):
+
         embeddings = self.model.encode(
             texts,
+            batch_size=batch_size,
             convert_to_numpy=True,
             show_progress_bar=True,
             normalize_embeddings=True,
@@ -18,7 +26,12 @@ class EmbeddingService:
 
         return embeddings
 
-    def embed_query(self, query: str):
+
+    def embed_query(
+        self,
+        query: str,
+    ):
+
         embedding = self.model.encode(
             [query],
             convert_to_numpy=True,

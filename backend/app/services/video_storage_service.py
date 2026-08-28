@@ -22,10 +22,16 @@ class VideoStorageService:
         self.db_path = (
             DATA_DIR / "videos.db"
         )
-        
-        print("VIDEO DATABASE PATH:", self.db_path.resolve())
+
+        print(
+            "VIDEO DATABASE PATH:",
+            self.db_path.resolve(),
+        )
 
         self._create_table()
+
+        # Add new columns to existing database
+        self._migrate_database()
 
 
     def _get_connection(self):
@@ -45,6 +51,8 @@ class VideoStorageService:
             """
             CREATE TABLE IF NOT EXISTS videos (
                 video_id TEXT PRIMARY KEY,
+                title TEXT,
+                thumbnail_url TEXT,
                 status TEXT NOT NULL,
                 segments INTEGER DEFAULT 0,
                 chunks INTEGER DEFAULT 0,
@@ -53,6 +61,57 @@ class VideoStorageService:
             )
             """
         )
+
+        connection.commit()
+
+        connection.close()
+
+
+    def _migrate_database(self):
+        """
+        Add missing columns for existing databases.
+        """
+
+        connection = self._get_connection()
+
+        cursor = connection.cursor()
+
+        cursor.execute(
+            "PRAGMA table_info(videos)"
+        )
+
+        existing_columns = {
+            row[1]
+            for row in cursor.fetchall()
+        }
+
+        if "title" not in existing_columns:
+
+            cursor.execute(
+                """
+                ALTER TABLE videos
+                ADD COLUMN title TEXT
+                """
+            )
+
+            print(
+                "Added title column."
+            )
+
+
+        if "thumbnail_url" not in existing_columns:
+
+            cursor.execute(
+                """
+                ALTER TABLE videos
+                ADD COLUMN thumbnail_url TEXT
+                """
+            )
+
+            print(
+                "Added thumbnail_url column."
+            )
+
 
         connection.commit()
 
@@ -72,6 +131,8 @@ class VideoStorageService:
             """
             SELECT
                 video_id,
+                title,
+                thumbnail_url,
                 status,
                 segments,
                 chunks,
@@ -92,11 +153,13 @@ class VideoStorageService:
 
         return {
             "video_id": row[0],
-            "status": row[1],
-            "segments": row[2],
-            "chunks": row[3],
-            "created_at": row[4],
-            "updated_at": row[5],
+            "title": row[1],
+            "thumbnail_url": row[2],
+            "status": row[3],
+            "segments": row[4],
+            "chunks": row[5],
+            "created_at": row[6],
+            "updated_at": row[7],
         }
 
 
@@ -106,6 +169,8 @@ class VideoStorageService:
         status: str,
         segments: int = 0,
         chunks: int = 0,
+        title: str | None = None,
+        thumbnail_url: str | None = None,
     ):
 
         now = datetime.now(
@@ -120,16 +185,26 @@ class VideoStorageService:
             """
             INSERT INTO videos (
                 video_id,
+                title,
+                thumbnail_url,
                 status,
                 segments,
                 chunks,
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 
             ON CONFLICT(video_id)
             DO UPDATE SET
+                title = COALESCE(
+                    excluded.title,
+                    videos.title
+                ),
+                thumbnail_url = COALESCE(
+                    excluded.thumbnail_url,
+                    videos.thumbnail_url
+                ),
                 status = excluded.status,
                 segments = excluded.segments,
                 chunks = excluded.chunks,
@@ -137,11 +212,49 @@ class VideoStorageService:
             """,
             (
                 video_id,
+                title,
+                thumbnail_url,
                 status,
                 segments,
                 chunks,
                 now,
                 now,
+            ),
+        )
+
+        connection.commit()
+
+        connection.close()
+        
+    def update_video_metadata(
+    self,
+    video_id: str,
+    title: str | None,
+    thumbnail_url: str | None,
+    ):
+
+        now = datetime.now(
+            timezone.utc
+        ).isoformat()
+
+        connection = self._get_connection()
+
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            UPDATE videos
+            SET
+                title = ?,
+                thumbnail_url = ?,
+                updated_at = ?
+            WHERE video_id = ?
+            """,
+            (
+                title,
+                thumbnail_url,
+                now,
+                video_id,
             ),
         )
 
@@ -170,3 +283,116 @@ class VideoStorageService:
         connection.commit()
 
         connection.close()
+
+
+    def get_all_videos(
+        self,
+        limit: int = 10,
+        offset: int = 0,
+        status: str | None = None,
+    ):
+
+        connection = self._get_connection()
+
+        cursor = connection.cursor()
+
+        query = """
+            SELECT
+                video_id,
+                title,
+                thumbnail_url,
+                status,
+                segments,
+                chunks,
+                created_at,
+                updated_at
+            FROM videos
+        """
+
+        parameters = []
+
+        if status:
+
+            query += """
+                WHERE status = ?
+            """
+
+            parameters.append(status)
+
+
+        query += """
+            ORDER BY updated_at DESC
+            LIMIT ?
+            OFFSET ?
+        """
+
+        parameters.extend(
+            [
+                limit,
+                offset,
+            ]
+        )
+
+        cursor.execute(
+            query,
+            parameters,
+        )
+
+        rows = cursor.fetchall()
+
+        connection.close()
+
+        videos = []
+
+        for row in rows:
+
+            videos.append(
+                {
+                    "video_id": row[0],
+                    "title": row[1],
+                    "thumbnail_url": row[2],
+                    "status": row[3],
+                    "segments": row[4],
+                    "chunks": row[5],
+                    "created_at": row[6],
+                    "updated_at": row[7],
+                }
+            )
+
+        return videos
+
+
+    def get_video_count(
+        self,
+        status: str | None = None,
+    ) -> int:
+
+        connection = self._get_connection()
+
+        cursor = connection.cursor()
+
+        if status:
+
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM videos
+                WHERE status = ?
+                """,
+                (status,),
+            )
+
+        else:
+
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM videos
+                """
+            )
+
+        count = cursor.fetchone()[0]
+
+        connection.close()
+
+        return count
