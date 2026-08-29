@@ -5,6 +5,10 @@ from fastapi import (
     Query,
 )
 
+from fastapi.middleware.cors import (
+    CORSMiddleware,
+)
+
 from backend.app.schemas.video import (
     ProcessVideoRequest,
     ProcessVideoResponse,
@@ -22,6 +26,10 @@ from backend.app.services.rag_service import (
 )
 
 
+# --------------------------------
+# Create FastAPI application
+# --------------------------------
+
 app = FastAPI(
     title="YouTube Video Q&A Assistant",
     description="Ask questions about YouTube videos using RAG.",
@@ -29,8 +37,34 @@ app = FastAPI(
 )
 
 
+# --------------------------------
+# CORS Configuration
+# --------------------------------
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# --------------------------------
+# Initialize RAG service
+# --------------------------------
+
 rag_service = RAGService()
 
+
+# --------------------------------
+# Root endpoint
+# --------------------------------
 
 @app.get("/")
 def root():
@@ -39,6 +73,10 @@ def root():
         "message": "YouTube Video Q&A Assistant API"
     }
 
+
+# --------------------------------
+# Process video
+# --------------------------------
 
 @app.post(
     "/process-video",
@@ -52,11 +90,11 @@ def process_video(
     try:
 
         result = rag_service.process_video(
-            request.url.strip()
+            url=request.url.strip(),
+            force_reprocess=request.force_reprocess,
         )
 
         # Start background processing
-        # only for newly added videos
         if result["status"] == "processing":
 
             background_tasks.add_task(
@@ -84,6 +122,10 @@ def process_video(
         )
 
 
+# --------------------------------
+# Get all videos
+# --------------------------------
+
 @app.get(
     "/videos",
     response_model=VideoListResponse,
@@ -104,6 +146,7 @@ def get_all_videos(
 ):
 
     if status:
+
         status = status.strip().lower()
 
     return rag_service.get_all_videos(
@@ -112,6 +155,10 @@ def get_all_videos(
         status=status,
     )
 
+
+# --------------------------------
+# Get video status
+# --------------------------------
 
 @app.get(
     "/video/{video_id}/status",
@@ -135,14 +182,18 @@ def get_video_status(
         )
 
     return {
-    "video_id": video["video_id"],
-    "title": video["title"],
-    "thumbnail_url": video["thumbnail_url"],
-    "status": video["status"],
-    "segments": video["segments"],
-    "chunks": video["chunks"],
-}
+        "video_id": video["video_id"],
+        "title": video["title"],
+        "thumbnail_url": video["thumbnail_url"],
+        "status": video["status"],
+        "segments": video["segments"],
+        "chunks": video["chunks"],
+    }
 
+
+# --------------------------------
+# Delete video
+# --------------------------------
 
 @app.delete(
     "/video/{video_id}",
@@ -167,6 +218,10 @@ def delete_video(
         )
 
 
+# --------------------------------
+# Ask question
+# --------------------------------
+
 @app.post(
     "/ask",
     response_model=AskQuestionResponse,
@@ -189,6 +244,10 @@ def ask_question(
             detail=str(error),
         )
 
+
+# --------------------------------
+# Health check
+# --------------------------------
 
 @app.get("/health")
 def health_check():

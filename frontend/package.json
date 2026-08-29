@@ -1,0 +1,25 @@
+{
+  "name": "youtube-qa-assistant",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Frontend for the YouTube Video Q&A Assistant - ask questions about any YouTube video and get timestamped answers.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .js,.jsx"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.34.4",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "vite": "^5.4.1"
+  }
+}

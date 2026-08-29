@@ -1,0 +1,67 @@
+:root {
+  /* ---- Color: ink (sidebar / dark surfaces) ---- */
+  --ink-950: #0e0f15;
+  --ink-900: #14151d;
+  --ink-800: #1c1e29;
+  --ink-700: #272935;
+  --ink-600: #363948;
+  --line-dark: #2b2d3a;
+
+  /* ---- Color: paper (main surface) ---- */
+  --paper-0: #ffffff;
+  --paper-50: #faf9f6;
+  --paper-100: #f2f0ea;
+  --line: #e6e3da;
+  --line-strong: #d8d4c8;
+
+  /* ---- Text ---- */
+  --text-900: #16171d;
+  --text-700: #40414d;
+  --text-600: #5c5e6b;
+  --text-500: #82838f;
+  --text-inverse: #f5f4f0;
+  --text-inverse-muted: #9a9cad;
+  --text-inverse-faint: #6c6e80;
+
+  /* ---- Accent (indigo-violet, used sparingly) ---- */
+  --accent-700: #4443b8;
+  --accent-600: #5453d6;
+  --accent-500: #6f6ee0;
+  --accent-100: #ecebfb;
+  --accent-050: #f4f4fd;
+
+  /* ---- Status ---- */
+  --success-600: #2e9e6e;
+  --success-100: #e2f5ec;
+  --warning-600: #c9862c;
+  --warning-100: #faf0dc;
+  --danger-600: #d0483f;
+  --danger-100: #fbe8e6;
+
+  /* ---- Type ---- */
+  --font-display: 'Space Grotesk', 'Inter', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+
+  /* ---- Layout ---- */
+  --sidebar-width: 320px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(20, 21, 29, 0.06);
+  --shadow-md: 0 4px 16px rgba(20, 21, 29, 0.08);
+  --shadow-lg: 0 12px 32px rgba(20, 21, 29, 0.14);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

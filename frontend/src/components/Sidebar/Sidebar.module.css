@@ -1,0 +1,379 @@
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--ink-950);
+  color: var(--text-inverse);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  border-right: 1px solid var(--line-dark);
+}
+
+/* ---- Brand ---- */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 20px 16px;
+}
+
+.brandMark {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--accent-600);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.brandName {
+  font-size: 17px;
+  color: var(--text-inverse);
+  line-height: 1.1;
+}
+
+.brandSubtitle {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-inverse-faint);
+  margin-top: 2px;
+}
+
+.mobileCloseButton {
+  display: none;
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-inverse-muted);
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px 6px;
+}
+
+.mobileCloseButton:hover {
+  color: var(--text-inverse);
+}
+
+/* ---- New video action ---- */
+.newVideoRow {
+  padding: 0 16px 14px;
+}
+
+.newVideoButton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--accent-600);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: background 0.12s var(--ease-out);
+}
+
+.newVideoButton:hover {
+  background: var(--accent-700);
+}
+
+/* ---- Search + filters ---- */
+.searchRow {
+  padding: 0 16px 10px;
+}
+
+.searchInput {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--line-dark);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text-inverse);
+}
+
+.searchInput::placeholder {
+  color: var(--text-inverse-faint);
+}
+
+.filterRow {
+  display: flex;
+  gap: 6px;
+  padding: 0 16px 12px;
+  flex-wrap: wrap;
+}
+
+.filterChip {
+  background: transparent;
+  border: 1px solid var(--line-dark);
+  color: var(--text-inverse-muted);
+  font-size: 11.5px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.03em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  transition: all 0.12s var(--ease-out);
+}
+
+.filterChip:hover {
+  border-color: var(--text-inverse-faint);
+  color: var(--text-inverse);
+}
+
+.filterChipActive {
+  background: var(--accent-600);
+  border-color: var(--accent-600);
+  color: white;
+}
+
+/* ---- List ---- */
+.listWrap {
+  flex: 1;
+  overflow-y: auto;
+  border-top: 1px solid var(--line-dark);
+  padding-top: 8px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 10px 16px;
+}
+
+.item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  text-align: left;
+  position: relative;
+  transition: background 0.12s var(--ease-out);
+}
+
+.item:hover {
+  background: var(--ink-800);
+}
+
+.itemSelected {
+  background: var(--ink-700);
+  border-color: var(--line-dark);
+}
+
+.itemSelected::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent-500);
+}
+
+.itemThumb {
+  width: 52px;
+  height: 34px;
+  border-radius: 5px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--ink-700);
+}
+
+.itemThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.itemThumbFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-inverse-faint);
+  font-size: 12px;
+}
+
+.itemBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemTitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-inverse);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.itemMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.itemMeta {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-inverse-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemMetaFailed {
+  font-size: 11px;
+  color: var(--danger-600);
+}
+
+.itemMenuTrigger {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-inverse-faint);
+  border-radius: 5px;
+  font-size: 15px;
+}
+
+.itemMenuTrigger:hover {
+  background: var(--ink-600);
+  color: var(--text-inverse);
+}
+
+.itemMenu {
+  position: absolute;
+  right: 12px;
+  z-index: 20;
+  margin-top: -6px;
+  background: var(--ink-800);
+  border: 1px solid var(--line-dark);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  min-width: 160px;
+}
+
+.itemMenu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  background: none;
+  border: none;
+  color: var(--text-inverse);
+  font-size: 13px;
+}
+
+.itemMenu button:hover {
+  background: var(--ink-700);
+}
+
+.itemMenuDanger {
+  color: #f0a49e !important;
+}
+
+/* ---- States ---- */
+.stateBlock {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text-inverse-muted);
+  font-size: 13px;
+}
+
+.stateError {
+  color: #f0a49e;
+}
+
+.retryButton {
+  background: var(--ink-700);
+  border: 1px solid var(--line-dark);
+  color: var(--text-inverse);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+}
+
+.retryButton:hover {
+  background: var(--ink-600);
+}
+
+.emptyTitle {
+  color: var(--text-inverse);
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.emptyBody {
+  line-height: 1.5;
+}
+
+/* ---- Mobile: sidebar becomes a slide-in drawer ---- */
+.backdrop {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(14, 15, 21, 0.45);
+    z-index: 940;
+    animation: backdrop-in 0.15s var(--ease-out);
+  }
+
+  @keyframes backdrop-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: min(320px, 84vw);
+    height: 100vh;
+    max-height: none;
+    z-index: 950;
+    transform: translateX(-100%);
+    transition: transform 0.22s var(--ease-out);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+
+  .mobileCloseButton {
+    display: block;
+  }
+}

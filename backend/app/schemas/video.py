@@ -10,6 +10,8 @@ class ProcessVideoRequest(BaseModel):
         description="YouTube video URL",
     )
 
+    force_reprocess: bool = False
+
 
 class ProcessVideoResponse(BaseModel):
 

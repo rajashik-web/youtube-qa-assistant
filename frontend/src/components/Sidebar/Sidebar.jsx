@@ -1,0 +1,150 @@
+import React, { useMemo, useState } from 'react';
+import VideoLibraryItem from './VideoLibraryItem';
+import Spinner from '../common/Spinner';
+import { useVideoLibrary } from '../../context/VideoLibraryContext';
+import { useUI } from '../../context/UIContext';
+import { VIDEO_STATUS } from '../../utils/constants';
+import styles from './Sidebar.module.css';
+
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: VIDEO_STATUS.PROCESSED, label: 'Ready' },
+  { key: VIDEO_STATUS.PROCESSING, label: 'Processing' },
+  { key: VIDEO_STATUS.FAILED, label: 'Failed' },
+];
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
+      <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export default function Sidebar() {
+  const { videos, libraryStatus, libraryError, fetchVideos, selectedVideoId } = useVideoLibrary();
+  const { openComposer, isMobileSidebarOpen, closeMobileSidebar } = useUI();
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
+
+  const filteredVideos = useMemo(() => {
+    return videos.filter((v) => {
+      const matchesQuery = !query.trim() || (v.title || '').toLowerCase().includes(query.trim().toLowerCase());
+      const matchesFilter =
+        filter === 'all' ||
+        v.status === filter ||
+        (filter === VIDEO_STATUS.PROCESSED && v.status === VIDEO_STATUS.ALREADY_PROCESSED);
+      return matchesQuery && matchesFilter;
+    });
+  }, [videos, query, filter]);
+
+  const handleNewVideo = () => {
+    openComposer();
+    closeMobileSidebar();
+  };
+
+  return (
+    <>
+      {isMobileSidebarOpen && (
+        <div className={styles.backdrop} onClick={closeMobileSidebar} aria-hidden="true" />
+      )}
+
+      <aside className={`${styles.sidebar} ${isMobileSidebarOpen ? styles.sidebarOpen : ''}`}>
+        <div className={styles.brand}>
+          <div className={styles.brandMark} aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+              <path d="M9 7L17 12L9 17V7Z" fill="currentColor" />
+            </svg>
+          </div>
+          <div>
+            <h1 className={styles.brandName}>Reel</h1>
+            <p className={styles.brandSubtitle}>Video Q&amp;A</p>
+          </div>
+          <button
+            type="button"
+            className={styles.mobileCloseButton}
+            onClick={closeMobileSidebar}
+            aria-label="Close video library"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className={styles.newVideoRow}>
+          <button type="button" className={styles.newVideoButton} onClick={handleNewVideo}>
+            <PlusIcon />
+            New video
+          </button>
+        </div>
+
+        {videos.length > 0 && (
+          <>
+            <div className={styles.searchRow}>
+              <input
+                type="search"
+                placeholder="Search your library…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className={styles.searchInput}
+                aria-label="Search video library"
+              />
+            </div>
+            <div className={styles.filterRow} role="tablist" aria-label="Filter by status">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === f.key}
+                  className={`${styles.filterChip} ${filter === f.key ? styles.filterChipActive : ''}`}
+                  onClick={() => setFilter(f.key)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className={styles.listWrap}>
+          {libraryStatus === 'loading' && (
+            <div className={styles.stateBlock}>
+              <Spinner size={18} />
+              <p>Loading your library…</p>
+            </div>
+          )}
+
+          {libraryStatus === 'error' && (
+            <div className={styles.stateBlock}>
+              <p className={styles.stateError}>{libraryError}</p>
+              <button type="button" className={styles.retryButton} onClick={fetchVideos}>
+                Try again
+              </button>
+            </div>
+          )}
+
+          {libraryStatus === 'ready' && videos.length === 0 && (
+            <div className={styles.stateBlock}>
+              <p className={styles.emptyTitle}>Your library is empty</p>
+              <p className={styles.emptyBody}>Add your first video to start asking questions.</p>
+            </div>
+          )}
+
+          {libraryStatus === 'ready' && videos.length > 0 && filteredVideos.length === 0 && (
+            <div className={styles.stateBlock}>
+              <p className={styles.emptyBody}>No videos match your search.</p>
+            </div>
+          )}
+
+          {filteredVideos.length > 0 && (
+            <ul className={styles.list}>
+              {filteredVideos.map((video) => (
+                <VideoLibraryItem key={video.video_id} video={video} isSelected={video.video_id === selectedVideoId} />
+              ))}
+            </ul>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}

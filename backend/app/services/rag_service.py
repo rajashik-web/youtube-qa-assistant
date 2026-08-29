@@ -59,7 +59,8 @@ class RAGService:
     def process_video(
     self,
     url: str,
-    ):
+    force_reprocess: bool = False,
+):
 
         # --------------------------------
         # 1. Extract video ID
@@ -86,8 +87,9 @@ class RAGService:
         # --------------------------------
 
         if (
-            existing_video
-            and existing_video["status"] == "processed"
+    existing_video
+    and existing_video["status"] == "processed"
+    and not force_reprocess
         ):
 
             return {
@@ -95,7 +97,7 @@ class RAGService:
                 "segments": existing_video["segments"],
                 "chunks": existing_video["chunks"],
                 "status": "already_processed",
-            }
+    }
 
 
         # --------------------------------
@@ -197,7 +199,7 @@ class RAGService:
                 chunk["video_id"] = video_id
 
             # --------------------------------
-            # Remove old partial vectors
+            # Remove old vectors
             # --------------------------------
 
             if self.vector_store.video_exists(
@@ -208,6 +210,14 @@ class RAGService:
                     video_id
                 )
 
+
+            # --------------------------------
+            # Clear old cached answers
+            # --------------------------------
+
+            self.cache_service.delete_video_cache(
+                video_id
+            )
             # --------------------------------
             # Store vectors
             # --------------------------------
@@ -259,8 +269,8 @@ class RAGService:
     self,
     video_id: str,
     question: str,
-    top_k: int = 3,
-    ):
+    top_k: int = 10,
+):
 
         # --------------------------------
         # 1. Check video metadata
@@ -376,6 +386,21 @@ class RAGService:
             video_id=video_id,
             top_k=top_k,
         )
+        
+        print("\n--- RETRIEVAL RESULTS ---")
+
+        for index, result in enumerate(results, start=1):
+            print(
+                f"Result {index}: "
+                f"score={result['score']:.4f}"
+            )
+
+        print(
+            "Minimum relevance score:",
+            self.MIN_RELEVANCE_SCORE
+        )
+
+        print("-------------------------\n")
 
         search_time = (
             time.perf_counter()
@@ -393,6 +418,18 @@ class RAGService:
             if result["score"]
             >= self.MIN_RELEVANCE_SCORE
         ]
+        
+        print("\n--- RETRIEVED CONTEXT ---")
+
+        for index, result in enumerate(
+            relevant_results,
+            start=1,
+        ):
+            print(f"\nRESULT {index}")
+            print(f"Score: {result['score']:.4f}")
+            print(f"Text: {result['text'][:500]}")
+
+        print("\n-------------------------\n")
 
         if not relevant_results:
 
