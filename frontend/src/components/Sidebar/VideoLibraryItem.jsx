@@ -5,7 +5,7 @@ import { useVideoLibrary } from '../../context/VideoLibraryContext';
 import { useUI } from '../../context/UIContext';
 import { useToast } from '../../context/ToastContext';
 import { ApiError } from '../../api/client';
-import { formatCount, formatRelativeDate } from '../../utils/formatters';
+import { formatRelativeDate } from '../../utils/formatters';
 import { READY_STATUSES, VIDEO_STATUS } from '../../utils/constants';
 import styles from './Sidebar.module.css';
 
@@ -27,12 +27,15 @@ export default function VideoLibraryItem({ video, isSelected }) {
     return () => window.removeEventListener('mousedown', onClickOutside);
   }, [menuOpen]);
 
-  const handleDelete = async () => {
+    const handleDelete = async () => {
     setIsDeleting(true);
     try {
       await removeVideo(video.video_id);
-      toast.success(`"${video.title || 'Video'}" was deleted.`);
+      // Explicitly clear the menu/dialog state before anything else so no
+      // stale menu can reference a video that's just been removed.
+      setMenuOpen(false);
       setConfirmDeleteOpen(false);
+      toast.success(`"${video.title || 'Video'}" was deleted.`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Could not delete this video.';
       toast.error(message);
@@ -85,9 +88,7 @@ export default function VideoLibraryItem({ video, isSelected }) {
             <div className={styles.itemMetaRow}>
               <StatusDot status={video.status} size="sm" />
               {isReady && (
-                <span className={styles.itemMeta}>
-                  {formatCount(video.chunks)} chunks · {formatRelativeDate(video.updated_at || video.created_at)}
-                </span>
+                <span className={styles.itemMeta}>{formatRelativeDate(video.updated_at || video.created_at)}</span>
               )}
               {isFailed && <span className={styles.itemMetaFailed}>Tap ⋯ to retry</span>}
             </div>
@@ -135,9 +136,10 @@ export default function VideoLibraryItem({ video, isSelected }) {
 
       <ConfirmDialog
         open={confirmDeleteOpen}
-        title="Delete this video?"
-        description={`This removes "${video.title || 'this video'}" along with its transcript data and any cached answers. This can't be undone.`}
+        title="Delete video?"
+        description={`Are you sure you want to delete "${video.title || 'this video'}"? This action cannot be undone.`}
         confirmLabel="Delete video"
+        busyLabel="Deleting…"
         tone="danger"
         isBusy={isDeleting}
         onConfirm={handleDelete}

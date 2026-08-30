@@ -52,9 +52,7 @@ export default function Sidebar() {
       <aside className={`${styles.sidebar} ${isMobileSidebarOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.brand}>
           <div className={styles.brandMark} aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
-              <path d="M9 7L17 12L9 17V7Z" fill="currentColor" />
-            </svg>
+            <img src="/logo.png" alt="" className={styles.brandMarkImg} />
           </div>
           <div>
             <h1 className={styles.brandName}>Reel</h1>

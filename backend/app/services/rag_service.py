@@ -386,21 +386,16 @@ class RAGService:
             video_id=video_id,
             top_k=top_k,
         )
-        
-        print("\n--- RETRIEVAL RESULTS ---")
+        print("\n--- RETRIEVED CONTEXT ---")
 
         for index, result in enumerate(results, start=1):
-            print(
-                f"Result {index}: "
-                f"score={result['score']:.4f}"
-            )
+            print(f"\nRESULT {index}")
+            print(f"Score: {result['score']:.4f}")
+            print(f"Text: {result['text'][:500]}")
 
-        print(
-            "Minimum relevance score:",
-            self.MIN_RELEVANCE_SCORE
-        )
-
-        print("-------------------------\n")
+        print("\n-------------------------\n")
+        
+        
 
         search_time = (
             time.perf_counter()
@@ -419,19 +414,10 @@ class RAGService:
             >= self.MIN_RELEVANCE_SCORE
         ]
         
-        print("\n--- RETRIEVED CONTEXT ---")
+        answer_results = relevant_results[:5]
+        
 
-        for index, result in enumerate(
-            relevant_results,
-            start=1,
-        ):
-            print(f"\nRESULT {index}")
-            print(f"Score: {result['score']:.4f}")
-            print(f"Text: {result['text'][:500]}")
-
-        print("\n-------------------------\n")
-
-        if not relevant_results:
+        if not answer_results:
 
             total_time = (
                 time.perf_counter()
@@ -472,7 +458,7 @@ class RAGService:
 
         context_parts = []
 
-        for result in relevant_results:
+        for result in answer_results:
 
             context_parts.append(
                 f"""
@@ -513,13 +499,33 @@ class RAGService:
             "I could not find the answer "
             "in the video transcript."
         )
-
         if answer.strip() == not_found_message:
+
+            total_time = (
+                time.perf_counter()
+                - total_start
+            )
+
+            print("\n--- RAG PERFORMANCE ---")
+            print(
+                f"Embedding: {embedding_time:.3f}s"
+            )
+            print(
+                f"Qdrant:    {search_time:.3f}s"
+            )
+            print(
+                f"LLM:       {llm_time:.3f}s"
+            )
+            print(
+                f"Total:     {total_time:.3f}s"
+            )
+            print("-----------------------\n")
 
             return {
                 "answer": not_found_message,
                 "sources": [],
             }
+
 
 
         # --------------------------------
@@ -528,7 +534,10 @@ class RAGService:
 
         sources = []
 
-        for result in relevant_results:
+        # Show only the best 3 sources to the user
+        source_results = answer_results[:3]
+
+        for result in source_results:
 
             sources.append(
                 {

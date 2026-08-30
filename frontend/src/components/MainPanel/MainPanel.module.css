@@ -1,7 +1,7 @@
 .main {
   flex: 1;
   min-width: 0;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -485,11 +485,6 @@
 /* Responsive                                                    */
 /* ---------------------------------------------------------- */
 @media (max-width: 860px) {
-  .main {
-    height: auto;
-    min-height: 55vh;
-  }
-
   .header {
     padding: 18px 20px;
     flex-wrap: wrap;

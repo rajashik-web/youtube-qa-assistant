@@ -32,8 +32,19 @@ function reducer(state, action) {
     case 'UPSERT_VIDEO':
       return { ...state, videos: upsertVideo(state.videos, action.video) };
     case 'REMOVE_VIDEO': {
+      const removedIndex = state.videos.findIndex((v) => v.video_id === action.videoId);
       const videos = state.videos.filter((v) => v.video_id !== action.videoId);
-      const selectedVideoId = state.selectedVideoId === action.videoId ? null : state.selectedVideoId;
+      let selectedVideoId = state.selectedVideoId;
+      if (state.selectedVideoId === action.videoId) {
+        // Deleting the active video: fall back to a neighboring video if any
+        // remain, so the user isn't dropped into an empty state unnecessarily.
+        if (videos.length > 0) {
+          const fallbackIndex = Math.min(removedIndex, videos.length - 1);
+          selectedVideoId = videos[fallbackIndex].video_id;
+        } else {
+          selectedVideoId = null;
+        }
+      }
       return { ...state, videos, selectedVideoId };
     }
     case 'SELECT_VIDEO':
