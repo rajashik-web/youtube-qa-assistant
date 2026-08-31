@@ -21,6 +21,7 @@
 
 .dialog {
   background: var(--paper-0);
+  color: var(--text-900);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   padding: 24px;
@@ -41,7 +42,9 @@
 }
 
 .title {
+  color: var(--text-900);
   font-size: 17px;
+  font-weight: 600;  
   margin-bottom: 8px;
 }
 

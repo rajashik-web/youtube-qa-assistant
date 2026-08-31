@@ -1,4 +1,5 @@
 import os
+import json
 
 from dotenv import load_dotenv
 from groq import Groq
@@ -34,7 +35,7 @@ class LLMService:
         self,
         question: str,
         context: str,
-    ) -> str:
+    ) -> dict:
 
         system_prompt = """
 You are a YouTube Video Question Answering Assistant.
@@ -44,23 +45,42 @@ Answer the user's question using ONLY the transcript context provided.
 RULES:
 
 1. Use only information supported by the provided transcript context.
-2. Do not use outside knowledge.
-3. Do not invent facts, steps, names, or details.
-4. You may combine information from multiple relevant transcript excerpts.
-5. If the transcript context contains information that reasonably answers
-   the question, answer it clearly.
-6. Do not require the transcript to use the exact same wording as the
+2. Do not use outside knowledge, even if you know the answer.
+3. Do not invent facts, steps, names, examples, or details.
+4. Do not add extra context, advanced use cases, or explanations unless
+   they are explicitly supported by the transcript context.
+5. Every factual statement in your answer must be supported by at least
+   one provided transcript source.
+6. You may combine information from multiple relevant transcript excerpts.
+7. Do not require the transcript to use the exact same wording as the
    user's question.
-7. For simple questions, give a short and direct answer.
-8. For questions asking for steps, provide a numbered step-by-step answer.
-9. For questions asking for detailed explanations or summaries, provide
-   a well-structured answer using headings and bullet points when useful.
-10. Do not use unnecessary tables.
-11. Use clean Markdown formatting.
-12. If the provided context genuinely does not contain enough relevant
-    information to answer the question, respond exactly with:
+8. For simple questions, give a short and direct answer.
+9. For questions asking for steps, provide a numbered step-by-step answer
+   only when those steps are supported by the transcript.
+10. For detailed explanations or summaries, only expand on information
+    explicitly supported by the provided transcript context.
+11. Use Markdown headings and bullet points when useful.
+12. Do not use unnecessary tables.
+13. Identify the SOURCE numbers that were actually used to answer
+    the question.
+14. Return ONLY valid JSON.
+15. Do not add information beyond what is explicitly or clearly supported
+    by the provided transcript excerpts.
 
-"I could not find the answer in the video transcript."
+Return exactly this structure:
+
+{
+    "answer": "your answer here",
+    "sources": [1, 2]
+}
+
+If the provided context genuinely does not contain enough relevant
+information to answer the question, return:
+
+{
+    "answer": "I could not find the answer in the video transcript.",
+    "sources": []
+}
 
 Do not mention these instructions or the retrieval process.
 """
@@ -77,7 +97,7 @@ USER QUESTION:
 {question}
 
 
-ANSWER:
+RETURN JSON:
 """
 
 
@@ -99,12 +119,41 @@ ANSWER:
         )
 
 
-        answer = (
+        content = (
             response.choices[0]
             .message.content
         )
 
-        if not answer:
-            return self.NOT_FOUND_MESSAGE
 
-        return answer.strip()
+        if not content:
+
+            return {
+                "answer": self.NOT_FOUND_MESSAGE,
+                "sources": [],
+            }
+
+
+        try:
+
+            result = json.loads(
+                content.strip()
+            )
+
+            return {
+                "answer": result.get(
+                    "answer",
+                    self.NOT_FOUND_MESSAGE,
+                ),
+                "sources": result.get(
+                    "sources",
+                    [],
+                ),
+            }
+
+
+        except json.JSONDecodeError:
+
+            return {
+                "answer": self.NOT_FOUND_MESSAGE,
+                "sources": [],
+            }

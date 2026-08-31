@@ -34,6 +34,8 @@ from backend.app.services.cache_service import (
     CacheService,
 )
 
+from backend.app.services.reranker_service import RerankerService
+
 import time
 
 class RAGService:
@@ -50,6 +52,8 @@ class RAGService:
         self.video_storage = VideoStorageService()
         
         self.cache_service = CacheService()
+        
+        self.reranker_service = RerankerService()
 
         self.vector_store.create_collection(
             vector_size=384
@@ -269,7 +273,7 @@ class RAGService:
     self,
     video_id: str,
     question: str,
-    top_k: int = 10,
+    top_k: int = 15,
 ):
 
         # --------------------------------
@@ -382,10 +386,10 @@ class RAGService:
         search_start = time.perf_counter()
 
         results = self.vector_store.search(
-            query_embedding=query_embedding,
-            video_id=video_id,
-            top_k=top_k,
-        )
+    query_embedding=query_embedding,
+    video_id=video_id,
+    top_k=top_k,
+)
         print("\n--- RETRIEVED CONTEXT ---")
 
         for index, result in enumerate(results, start=1):
@@ -404,7 +408,7 @@ class RAGService:
 
 
         # --------------------------------
-        # 5. Filter weak retrieval results
+        # 5. Filter and rerank results
         # --------------------------------
 
         relevant_results = [
@@ -413,10 +417,55 @@ class RAGService:
             if result["score"]
             >= self.MIN_RELEVANCE_SCORE
         ]
-        
-        answer_results = relevant_results[:5]
-        
 
+
+        reranker_start = time.perf_counter()
+
+
+        reranked_results = (
+            self.reranker_service.rerank(
+                question=question,
+                results=relevant_results,
+                top_k=5,
+            )
+        )
+
+
+        reranker_time = (
+            time.perf_counter()
+            - reranker_start
+        )
+
+
+        print("\n--- RERANKING RESULTS ---")
+
+        for index, result in enumerate(
+            reranked_results,
+            start=1,
+        ):
+            print(f"\nResult {index}")
+
+            print(
+                f"Qdrant score: "
+                f"{result['score']:.4f}"
+            )
+
+            print(
+                f"Rerank score: "
+                f"{result['rerank_score']:.4f}"
+            )
+
+            print(
+                f"Text: "
+                f"{result['text'][:300]}"
+            )
+
+
+        print("\n-------------------------\n")
+
+
+        answer_results = reranked_results
+        
         if not answer_results:
 
             total_time = (
@@ -434,6 +483,10 @@ class RAGService:
                 f"Qdrant:    {search_time:.3f}s"
             )
 
+            print(
+                f"Reranker:  {reranker_time:.3f}s"
+            )
+
             print("LLM:       0.000s")
 
             print(
@@ -443,13 +496,9 @@ class RAGService:
             print("-----------------------\n")
 
             return {
-                "answer": (
-                    "I could not find enough relevant "
-                    "information in this video to answer "
-                    "that question."
-                ),
-                "sources": [],
-            }
+    "answer": not_found_message,
+    "sources": [],
+}
 
 
         # --------------------------------
@@ -458,16 +507,25 @@ class RAGService:
 
         context_parts = []
 
-        for result in answer_results:
+        for index, result in enumerate(
+            answer_results,
+            start=1,
+        ):
 
             context_parts.append(
                 f"""
-    [Timestamp: {result["start_time"]:.2f}s
-    to {result["end_time"]:.2f}s]
+        [SOURCE {index}]
 
-    {result["text"]}
-    """
+        Timestamp:
+        {result["start_time"]:.2f}s
+        to
+        {result["end_time"]:.2f}s
+
+        Transcript:
+        {result["text"]}
+        """
             )
+
 
         context = "\n\n".join(
             context_parts
@@ -480,9 +538,17 @@ class RAGService:
 
         llm_start = time.perf_counter()
 
-        answer = self.llm_service.answer_question(
-            question=question,
-            context=context,
+        llm_result = (
+            self.llm_service.answer_question(
+                question=question,
+                context=context,
+            )
+        )
+
+        answer = llm_result["answer"]
+
+        used_source_numbers = (
+            llm_result["sources"]
         )
         
         llm_time = (
@@ -511,8 +577,13 @@ class RAGService:
                 f"Embedding: {embedding_time:.3f}s"
             )
             print(
-                f"Qdrant:    {search_time:.3f}s"
+    f"Qdrant:    {search_time:.3f}s"
+)
+
+            print(
+                f"Reranker:  {reranker_time:.3f}s"
             )
+
             print(
                 f"LLM:       {llm_time:.3f}s"
             )
@@ -534,8 +605,35 @@ class RAGService:
 
         sources = []
 
-        # Show only the best 3 sources to the user
-        source_results = answer_results[:3]
+
+        # --------------------------------
+        # Select only sources used by LLM
+        # --------------------------------
+
+        source_results = []
+
+        for source_number in used_source_numbers:
+
+            if not isinstance(
+                source_number,
+                int,
+            ):
+                continue
+
+            # SOURCE numbers start at 1
+            # Python indexes start at 0
+            index = source_number - 1
+
+            if 0 <= index < len(answer_results):
+
+                source_results.append(
+                    answer_results[index]
+                )
+
+
+        # --------------------------------
+        # Build source response
+        # --------------------------------
 
         for result in source_results:
 
@@ -603,7 +701,11 @@ class RAGService:
         )
 
         print(
-            f"Qdrant:    {search_time:.3f}s"
+    f"Qdrant:    {search_time:.3f}s"
+)
+
+        print(
+            f"Reranker:  {reranker_time:.3f}s"
         )
 
         print(
