@@ -1,5 +1,6 @@
 from fastapi import (
     BackgroundTasks,
+    Depends,
     FastAPI,
     HTTPException,
     Query,
@@ -9,20 +10,57 @@ from fastapi.middleware.cors import (
     CORSMiddleware,
 )
 
-from backend.app.schemas.video import (
+from sqlalchemy.orm import Session
+
+from app.database.database import (
+    Base,
+    engine,
+    get_db,
+)
+
+from app.auth.dependencies import (
+    get_current_user,
+)
+
+from app.schemas.auth import (
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
+)
+
+from app.services.auth_service import (
+    AuthService,
+)
+
+# Import models before create_all()
+from app.models.user import User
+from app.models.conversation import Conversation
+from app.models.message import Message
+
+from app.schemas.video import (
     ProcessVideoRequest,
     ProcessVideoResponse,
     VideoListResponse,
     VideoStatusResponse,
 )
 
-from backend.app.schemas.question import (
+from app.schemas.question import (
     AskQuestionRequest,
     AskQuestionResponse,
 )
 
-from backend.app.services.rag_service import (
+from app.services.rag_service import (
     RAGService,
+)
+
+
+# --------------------------------
+# Create database tables
+# --------------------------------
+
+Base.metadata.create_all(
+    bind=engine
 )
 
 
@@ -60,6 +98,8 @@ app.add_middleware(
 # --------------------------------
 
 rag_service = RAGService()
+
+auth_service = AuthService()
 
 
 # --------------------------------
@@ -243,6 +283,90 @@ def ask_question(
             status_code=400,
             detail=str(error),
         )
+
+
+
+# --------------------------------
+# Register user
+# --------------------------------
+
+@app.post(
+    "/auth/register",
+    response_model=UserResponse,
+)
+def register_user(
+    request: RegisterRequest,
+    db: Session = Depends(get_db),
+):
+
+    try:
+
+        user = auth_service.register_user(
+            db=db,
+            username=request.username.strip(),
+            email=str(request.email).strip().lower(),
+            password=request.password,
+        )
+
+        return user
+
+    except ValueError as error:
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        )
+        
+# --------------------------------
+# Login user
+# --------------------------------
+
+@app.post(
+    "/auth/login",
+    response_model=TokenResponse,
+)
+def login_user(
+    request: LoginRequest,
+    db: Session = Depends(get_db),
+):
+
+    try:
+
+        access_token = auth_service.login_user(
+            db=db,
+            email=str(
+                request.email
+            ).strip().lower(),
+            password=request.password,
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+        }
+
+    except ValueError as error:
+
+        raise HTTPException(
+            status_code=401,
+            detail=str(error),
+        )
+        
+# --------------------------------
+# Get current user
+# --------------------------------
+
+@app.get(
+    "/auth/me",
+    response_model=UserResponse,
+)
+def get_current_user_info(
+    current_user: User = Depends(
+        get_current_user
+    ),
+):
+
+    return current_user
 
 
 # --------------------------------

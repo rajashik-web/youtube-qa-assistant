@@ -1,40 +1,42 @@
-from backend.app.services.youtube_service import (
+from app.services.youtube_service import (
     extract_video_id,
     fetch_video_metadata,
     fetch_transcript,
     format_transcript,
 )
 
-from backend.app.services.video_storage_service import (
+from app.services.video_storage_service import (
     VideoStorageService,
 )
 
-from backend.app.services.chunking_service import (
+from app.services.chunking_service import (
     create_chunks,
 )
 
-from backend.app.utils.time_utils import (
+from app.utils.time_utils import (
     format_timestamp,
     create_youtube_timestamp_url,
 )
 
-from backend.app.services.embedding_service import (
+from app.services.embedding_service import (
     EmbeddingService,
 )
 
-from backend.app.services.qdrant_service import (
+from app.services.qdrant_service import (
     QdrantVectorStore,
 )
 
-from backend.app.services.llm_service import (
+from app.services.llm_service import (
     LLMService,
 )
 
-from backend.app.services.cache_service import (
+from app.services.cache_service import (
     CacheService,
 )
 
-from backend.app.services.reranker_service import RerankerService
+from app.services.reranker_service import (
+    RerankerService,
+)
 
 import time
 
