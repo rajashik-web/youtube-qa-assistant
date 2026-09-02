@@ -16,6 +16,14 @@ class AskQuestionRequest(BaseModel):
         description="Question about the video",
     )
 
+    conversation_id: int | None = Field(
+        default=None,
+        description=(
+            "Conversation ID for logged-in users. "
+            "Leave empty for guest questions."
+        ),
+    )
+
 
 class SourceResponse(BaseModel):
 

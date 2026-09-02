@@ -19,6 +19,11 @@ from app.database.database import (
 )
 
 from app.auth.dependencies import (
+    get_current_user_optional,
+)
+
+
+from app.auth.dependencies import (
     get_current_user,
 )
 
@@ -27,6 +32,16 @@ from app.schemas.auth import (
     RegisterRequest,
     TokenResponse,
     UserResponse,
+)
+
+from app.services.conversation_service import (
+    ConversationService,
+)
+
+from app.schemas.conversation import (
+    ConversationDetailResponse,
+    ConversationResponse,
+    CreateConversationRequest,
 )
 
 from app.services.auth_service import (
@@ -100,6 +115,8 @@ app.add_middleware(
 rag_service = RAGService()
 
 auth_service = AuthService()
+
+conversation_service = ConversationService()
 
 
 # --------------------------------
@@ -268,14 +285,113 @@ def delete_video(
 )
 def ask_question(
     request: AskQuestionRequest,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(
+        get_current_user_optional
+    ),
 ):
 
     try:
 
-        return rag_service.ask_question(
+        # ----------------------------
+        # Guest user
+        # ----------------------------
+
+        if current_user is None:
+
+            return rag_service.ask_question(
+                video_id=request.video_id.strip(),
+                question=request.question.strip(),
+            )
+
+
+        # ----------------------------
+        # Logged-in user without
+        # conversation ID
+        # ----------------------------
+
+        if request.conversation_id is None:
+
+            return rag_service.ask_question(
+                video_id=request.video_id.strip(),
+                question=request.question.strip(),
+            )
+
+
+        # ----------------------------
+        # Verify conversation ownership
+        # ----------------------------
+
+        conversation = (
+            conversation_service.get_conversation(
+                db=db,
+                conversation_id=request.conversation_id,
+                user_id=current_user.id,
+            )
+        )
+
+        if conversation is None:
+
+            raise HTTPException(
+                status_code=404,
+                detail="Conversation not found.",
+            )
+            
+        # ----------------------------
+        # Generate title if missing
+        # ----------------------------
+
+        if not conversation.title:
+
+            title = (
+                conversation_service.generate_title(
+                    request.question
+                )
+            )
+
+            conversation_service.update_title(
+                db=db,
+                conversation_id=conversation.id,
+                title=title,
+            )
+
+
+        # ----------------------------
+        # Save user question
+        # ----------------------------
+
+        conversation_service.add_message(
+            db=db,
+            conversation_id=conversation.id,
+            role="user",
+            content=request.question.strip(),
+        )
+
+
+        # ----------------------------
+        # Generate RAG answer
+        # ----------------------------
+
+        result = rag_service.ask_question(
             video_id=request.video_id.strip(),
             question=request.question.strip(),
         )
+
+
+        # ----------------------------
+        # Save AI answer
+        # ----------------------------
+
+        conversation_service.add_message(
+            db=db,
+            conversation_id=conversation.id,
+            role="assistant",
+            content=result["answer"],
+        )
+
+
+        return result
+
 
     except ValueError as error:
 
@@ -367,6 +483,123 @@ def get_current_user_info(
 ):
 
     return current_user
+
+# --------------------------------
+# Create conversation
+# --------------------------------
+
+@app.post(
+    "/conversations",
+    response_model=ConversationResponse,
+)
+def create_conversation(
+    request: CreateConversationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    ),
+):
+
+    conversation = (
+        conversation_service.create_conversation(
+            db=db,
+            user_id=current_user.id,
+            title=request.title,
+        )
+    )
+
+    return conversation
+
+# --------------------------------
+# Get user conversations
+# --------------------------------
+
+@app.get(
+    "/conversations",
+    response_model=list[ConversationResponse],
+)
+def get_conversations(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    ),
+):
+
+    return (
+        conversation_service.get_user_conversations(
+            db=db,
+            user_id=current_user.id,
+        )
+    )
+    
+# --------------------------------
+# Get conversation
+# --------------------------------
+
+@app.get(
+    "/conversations/{conversation_id}",
+    response_model=ConversationDetailResponse,
+)
+def get_conversation(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    ),
+):
+
+    conversation = (
+        conversation_service.get_conversation(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=current_user.id,
+        )
+    )
+
+    if conversation is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found.",
+        )
+
+    return conversation
+
+# --------------------------------
+# Delete conversation
+# --------------------------------
+
+@app.delete(
+    "/conversations/{conversation_id}",
+)
+def delete_conversation(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    ),
+):
+
+    deleted = (
+        conversation_service.delete_conversation(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=current_user.id,
+        )
+    )
+
+    if not deleted:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found.",
+        )
+
+    return {
+        "message": (
+            "Conversation deleted successfully."
+        )
+    }
 
 
 # --------------------------------
