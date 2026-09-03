@@ -39,9 +39,10 @@ from app.services.conversation_service import (
 )
 
 from app.schemas.conversation import (
-    ConversationDetailResponse,
-    ConversationResponse,
     CreateConversationRequest,
+    ConversationResponse,
+    ConversationDetailResponse,
+    UpdateConversationRequest,
 )
 
 from app.services.auth_service import (
@@ -306,54 +307,66 @@ def ask_question(
 
 
         # ----------------------------
-        # Logged-in user without
-        # conversation ID
+        # Logged-in user
         # ----------------------------
 
         if request.conversation_id is None:
 
-            return rag_service.ask_question(
-                video_id=request.video_id.strip(),
-                question=request.question.strip(),
-            )
-
-
-        # ----------------------------
-        # Verify conversation ownership
-        # ----------------------------
-
-        conversation = (
-            conversation_service.get_conversation(
-                db=db,
-                conversation_id=request.conversation_id,
-                user_id=current_user.id,
-            )
-        )
-
-        if conversation is None:
-
-            raise HTTPException(
-                status_code=404,
-                detail="Conversation not found.",
-            )
-            
-        # ----------------------------
-        # Generate title if missing
-        # ----------------------------
-
-        if not conversation.title:
-
+            # Generate title
             title = (
                 conversation_service.generate_title(
                     request.question
                 )
             )
 
-            conversation_service.update_title(
-                db=db,
-                conversation_id=conversation.id,
-                title=title,
+            # Create new conversation
+            conversation = (
+                conversation_service.create_conversation(
+                    db=db,
+                    user_id=current_user.id,
+                    title=title,
+                )
             )
+
+        else:
+
+            # ----------------------------
+            # Verify conversation ownership
+            # ----------------------------
+
+            conversation = (
+                conversation_service.get_conversation(
+                    db=db,
+                    conversation_id=request.conversation_id,
+                    user_id=current_user.id,
+                )
+            )
+
+            if conversation is None:
+
+                raise HTTPException(
+                    status_code=404,
+                    detail="Conversation not found.",
+                )
+
+
+            # ----------------------------
+            # Generate title if missing
+            # ----------------------------
+
+            if not conversation.title:
+
+                title = (
+                    conversation_service.generate_title(
+                        request.question
+                    )
+                )
+
+                conversation_service.update_title(
+                    db=db,
+                    conversation_id=conversation.id,
+                    title=title,
+                )
 
 
         # ----------------------------
@@ -390,7 +403,14 @@ def ask_question(
         )
 
 
-        return result
+        # ----------------------------
+        # Return answer + conversation ID
+        # ----------------------------
+
+        return {
+            **result,
+            "conversation_id": conversation.id,
+        }
 
 
     except ValueError as error:
@@ -553,6 +573,41 @@ def get_conversation(
             db=db,
             conversation_id=conversation_id,
             user_id=current_user.id,
+        )
+    )
+
+    if conversation is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found.",
+        )
+
+    return conversation
+
+# --------------------------------
+# Update conversation title
+# --------------------------------
+
+@app.patch(
+    "/conversations/{conversation_id}",
+    response_model=ConversationResponse,
+)
+def update_conversation_title(
+    conversation_id: int,
+    request: UpdateConversationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    ),
+):
+
+    conversation = (
+        conversation_service.update_conversation_title(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=current_user.id,
+            title=request.title,
         )
     )
 

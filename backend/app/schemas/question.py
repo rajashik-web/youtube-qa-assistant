@@ -43,3 +43,5 @@ class AskQuestionResponse(BaseModel):
     answer: str
 
     sources: list[SourceResponse]
+
+    conversation_id: int | None = None

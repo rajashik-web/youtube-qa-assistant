@@ -212,3 +212,98 @@ class ConversationService:
         )
 
         return conversation
+    
+    # --------------------------------
+    # Update conversation title
+    # --------------------------------
+
+    def update_conversation_title(
+        self,
+        db: Session,
+        conversation_id: int,
+        user_id: int,
+        title: str,
+    ) -> Conversation | None:
+
+        conversation = (
+            self.get_conversation(
+                db=db,
+                conversation_id=conversation_id,
+                user_id=user_id,
+            )
+        )
+
+        if conversation is None:
+
+            return None
+
+        conversation.title = title.strip()
+
+        db.commit()
+
+        db.refresh(
+            conversation
+        )
+
+        return conversation
+    
+    # --------------------------------
+    # Get paginated messages
+    # --------------------------------
+
+    def get_messages(
+        self,
+        db: Session,
+        conversation_id: int,
+        user_id: int,
+        limit: int = 20,
+        before_id: int | None = None,
+    ) -> list[Message] | None:
+
+        # Verify conversation ownership
+        conversation = (
+            self.get_conversation(
+                db=db,
+                conversation_id=conversation_id,
+                user_id=user_id,
+            )
+        )
+
+        if conversation is None:
+
+            return None
+
+
+        query = (
+            db.query(Message)
+            .filter(
+                Message.conversation_id
+                == conversation_id
+            )
+        )
+
+
+        # Load messages older than before_id
+        if before_id is not None:
+
+            query = query.filter(
+                Message.id < before_id
+            )
+
+
+        # Get newest messages first
+        messages = (
+            query
+            .order_by(
+                Message.id.desc()
+            )
+            .limit(limit)
+            .all()
+        )
+
+
+        # Reverse for normal chat display
+        messages.reverse()
+
+
+        return messages

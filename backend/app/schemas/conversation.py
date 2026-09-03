@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CreateConversationRequest(BaseModel):
@@ -41,3 +41,18 @@ class ConversationDetailResponse(
 ):
 
     messages: list[MessageResponse]
+    
+class UpdateConversationRequest(BaseModel):
+
+    title: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="New conversation title",
+    )
+    
+class PaginatedMessagesResponse(BaseModel):
+
+    messages: list[MessageResponse]
+
+    next_cursor: int | None
