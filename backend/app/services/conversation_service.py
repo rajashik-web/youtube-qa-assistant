@@ -307,3 +307,32 @@ class ConversationService:
 
 
         return messages
+    
+    # --------------------------------
+    # Get recent conversation messages
+    # --------------------------------
+
+    def get_recent_messages(
+        self,
+        db: Session,
+        conversation_id: int,
+        limit: int = 6,
+    ) -> list[Message]:
+
+        messages = (
+            db.query(Message)
+            .filter(
+                Message.conversation_id
+                == conversation_id
+            )
+            .order_by(
+                Message.created_at.desc()
+            )
+            .limit(limit)
+            .all()
+        )
+
+        # Reverse to chronological order
+        messages.reverse()
+
+        return messages

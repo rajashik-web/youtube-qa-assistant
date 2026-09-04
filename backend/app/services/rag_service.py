@@ -275,6 +275,7 @@ class RAGService:
     self,
     video_id: str,
     question: str,
+    conversation_context: str = "",
     top_k: int = 15,
 ):
 
@@ -319,41 +320,48 @@ class RAGService:
         # 2. Check answer cache
         # --------------------------------
 
-        cached_answer = (
-            self.cache_service.get_cached_answer(
-                video_id=video_id,
-                question=question,
-            )
-        )
-
         not_found_message = (
             "I could not find the answer "
             "in the video transcript."
         )
 
 
-        if cached_answer:
+        # Only use cache when there is no
+        # conversation context
+        if not conversation_context.strip():
 
-            if (
-                cached_answer["answer"].strip()
-                == not_found_message
-            ):
-
-                # Remove old bad cache entry
-                self.cache_service.delete_cached_answer(
+            cached_answer = (
+                self.cache_service.get_cached_answer(
                     video_id=video_id,
                     question=question,
                 )
+            )
 
-                print(
-                    "Removed old not-found cache entry."
-                )
 
-            else:
+            if cached_answer:
 
-                print("Answer returned from cache!")
+                if (
+                    cached_answer["answer"].strip()
+                    == not_found_message
+                ):
 
-                return cached_answer
+                    # Remove old bad cache entry
+                    self.cache_service.delete_cached_answer(
+                        video_id=video_id,
+                        question=question,
+                    )
+
+                    print(
+                        "Removed old not-found cache entry."
+                    )
+
+                else:
+
+                    print(
+                        "Answer returned from cache!"
+                    )
+
+                    return cached_answer
 
 
         # --------------------------------
@@ -361,6 +369,30 @@ class RAGService:
         # --------------------------------
 
         total_start = time.perf_counter()
+        
+        # --------------------------------
+        # Build retrieval query
+        # --------------------------------
+
+        retrieval_query = question
+
+
+        if conversation_context.strip():
+
+            retrieval_query = (
+                f"""
+        Previous conversation:
+
+        {conversation_context}
+
+        Current user question:
+
+        {question}
+
+        Find transcript information needed to answer
+        the current user question.
+        """
+            )
 
 
         # --------------------------------
@@ -370,10 +402,10 @@ class RAGService:
         embedding_start = time.perf_counter()
 
         query_embedding = (
-            self.embedding_service.embed_query(
-                question
-            )[0]
-        )
+    self.embedding_service.embed_query(
+        retrieval_query
+    )[0]
+)
 
         embedding_time = (
             time.perf_counter()
@@ -425,12 +457,12 @@ class RAGService:
 
 
         reranked_results = (
-            self.reranker_service.rerank(
-                question=question,
-                results=relevant_results,
-                top_k=5,
-            )
-        )
+    self.reranker_service.rerank(
+        question=retrieval_query,
+        results=relevant_results,
+        top_k=5,
+    )
+)
 
 
         reranker_time = (
@@ -541,11 +573,12 @@ class RAGService:
         llm_start = time.perf_counter()
 
         llm_result = (
-            self.llm_service.answer_question(
-                question=question,
-                context=context,
-            )
-        )
+    self.llm_service.answer_question(
+        question=question,
+        context=context,
+        conversation_context=conversation_context,
+    )
+)
 
         answer = llm_result["answer"]
 
@@ -679,13 +712,15 @@ class RAGService:
         # 9. Save answer to cache
         # --------------------------------
 
-        self.cache_service.save_answer(
-            video_id=video_id,
-            question=question,
-            answer=answer,
-            sources=sources,
-        )
+        # Only cache standalone questions
+        if not conversation_context.strip():
 
+            self.cache_service.save_answer(
+                video_id=video_id,
+                question=question,
+                answer=answer,
+                sources=sources,
+            )
 
         # --------------------------------
         # 10. Print performance

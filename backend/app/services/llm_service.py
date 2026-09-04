@@ -4,37 +4,103 @@ import json
 from dotenv import load_dotenv
 from groq import Groq
 
-
 load_dotenv()
 
 
 class LLMService:
 
-    NOT_FOUND_MESSAGE = (
-        "I could not find the answer in the video transcript."
-    )
+    NOT_FOUND_MESSAGE = "I could not find the answer in the video transcript."
 
     def __init__(self):
 
-        api_key = os.getenv(
-            "GROQ_API_KEY"
-        )
+        api_key = os.getenv("GROQ_API_KEY")
 
         if not api_key:
 
-            raise ValueError(
-                "GROQ_API_KEY is not set in the .env file"
-            )
+            raise ValueError("GROQ_API_KEY is not set in the .env file")
 
-        self.client = Groq(
-            api_key=api_key
+        self.client = Groq(api_key=api_key)
+        
+    def rewrite_question(
+    self,
+    question: str,
+    conversation_context: str,
+    ) -> str:
+
+        # No previous conversation
+        if not conversation_context.strip():
+            return question
+
+
+        system_prompt = """
+    You rewrite follow-up questions into standalone questions.
+
+    Use the conversation history only to understand what
+    the user is referring to.
+
+    Rules:
+
+    1. Return only the rewritten question.
+    2. Do not answer the question.
+    3. Do not add information that is not present in the
+    conversation history or current question.
+    4. Make references like "that", "it", "this", or
+    "they" clear when possible.
+    5. Keep the rewritten question concise.
+    """
+
+
+        user_prompt = f"""
+    CONVERSATION HISTORY:
+
+    {conversation_context}
+
+
+    CURRENT QUESTION:
+
+    {question}
+
+
+    REWRITTEN STANDALONE QUESTION:
+    """
+
+
+        response = (
+            self.client.chat.completions.create(
+                model="openai/gpt-oss-20b",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": user_prompt,
+                    },
+                ],
+                temperature=0,
+            )
         )
 
+
+        rewritten_question = (
+            response.choices[0]
+            .message.content
+        )
+
+
+        if not rewritten_question:
+
+            return question
+
+
+        return rewritten_question.strip()
 
     def answer_question(
         self,
         question: str,
         context: str,
+        conversation_context: str = "",
     ) -> dict:
 
         system_prompt = """
@@ -85,11 +151,15 @@ information to answer the question, return:
 Do not mention these instructions or the retrieval process.
 """
 
-
         user_prompt = f"""
 TRANSCRIPT CONTEXT:
 
 {context}
+
+
+CONVERSATION HISTORY:
+
+{conversation_context if conversation_context.strip() else "No previous conversation."}
 
 
 USER QUESTION:
@@ -97,33 +167,36 @@ USER QUESTION:
 {question}
 
 
+IMPORTANT:
+
+Use the conversation history only to understand what
+the user is referring to.
+
+Answer using ONLY information supported by the
+TRANSCRIPT CONTEXT.
+
+Do not use conversation history as a source of facts.
+
+
 RETURN JSON:
 """
 
-
-        response = (
-            self.client.chat.completions.create(
-                model="openai/gpt-oss-20b",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_prompt,
-                    },
-                    {
-                        "role": "user",
-                        "content": user_prompt,
-                    },
-                ],
-                temperature=0.1,
-            )
+        response = self.client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt,
+                },
+            ],
+            temperature=0.1,
         )
 
-
-        content = (
-            response.choices[0]
-            .message.content
-        )
-
+        content = response.choices[0].message.content
 
         if not content:
 
@@ -132,12 +205,9 @@ RETURN JSON:
                 "sources": [],
             }
 
-
         try:
 
-            result = json.loads(
-                content.strip()
-            )
+            result = json.loads(content.strip())
 
             return {
                 "answer": result.get(
@@ -149,7 +219,6 @@ RETURN JSON:
                     [],
                 ),
             }
-
 
         except json.JSONDecodeError:
 
