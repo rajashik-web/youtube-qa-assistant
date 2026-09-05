@@ -129,7 +129,8 @@ def ask_question(
                     conversation_id=conversation.id,
                     title=title,
                 )
-                
+
+
         # ----------------------------
         # Get conversation history
         # ----------------------------
@@ -144,8 +145,14 @@ def ask_question(
 
 
         # ----------------------------
-        # Build conversation context
+        # Build conversation contexts
         # ----------------------------
+
+        # Full history for the final LLM.
+        #
+        # This contains both user and assistant
+        # messages so the final LLM can understand
+        # the conversation flow.
 
         conversation_context = ""
 
@@ -155,6 +162,24 @@ def ask_question(
                 f"{message.role.capitalize()}: "
                 f"{message.content}\n"
             )
+
+
+        # User-only history for query rewriting.
+        #
+        # Previous assistant responses must NOT
+        # influence retrieval because they may contain
+        # hallucinated information.
+
+        rewrite_context = ""
+
+        for message in recent_messages:
+
+            if message.role == "user":
+
+                rewrite_context += (
+                    f"User: "
+                    f"{message.content}\n"
+                )
 
 
         # ----------------------------
@@ -174,10 +199,11 @@ def ask_question(
         # ----------------------------
 
         result = rag_service.ask_question(
-    video_id=request.video_id.strip(),
-    question=request.question.strip(),
-    conversation_context=conversation_context,
-)
+            video_id=request.video_id.strip(),
+            question=request.question.strip(),
+            conversation_context=conversation_context,
+            rewrite_context=rewrite_context,
+        )
 
 
         # ----------------------------

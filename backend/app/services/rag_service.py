@@ -52,9 +52,9 @@ class RAGService:
         self.llm_service = LLMService()
 
         self.video_storage = VideoStorageService()
-        
+
         self.cache_service = CacheService()
-        
+
         self.reranker_service = RerankerService()
 
         self.vector_store.create_collection(
@@ -272,12 +272,13 @@ class RAGService:
             )
 
     def ask_question(
-    self,
-    video_id: str,
-    question: str,
-    conversation_context: str = "",
-    top_k: int = 15,
-):
+        self,
+        video_id: str,
+        question: str,
+        conversation_context: str = "",
+        rewrite_context: str = "",
+        top_k: int = 15,
+    ):
 
         # --------------------------------
         # 1. Check video metadata
@@ -369,7 +370,7 @@ class RAGService:
         # --------------------------------
 
         total_start = time.perf_counter()
-        
+
         # --------------------------------
         # Build retrieval query
         # --------------------------------
@@ -377,22 +378,23 @@ class RAGService:
         retrieval_query = question
 
 
-        if conversation_context.strip():
-
-            retrieval_query = (
-                f"""
-        Previous conversation:
-
-        {conversation_context}
-
-        Current user question:
-
-        {question}
-
-        Find transcript information needed to answer
-        the current user question.
-        """
+        if (
+            rewrite_context.strip()
+            and self.llm_service.needs_question_rewrite(question)
+        ):
+            retrieval_query = self.llm_service.rewrite_question(
+                question=question,
+                conversation_context=rewrite_context,
             )
+            print("Question rewritten for retrieval.")
+        else:
+            print("Original question used for retrieval.")
+
+
+        print(
+            f"\nRetrieval query: "
+            f"{retrieval_query}\n"
+        )
 
 
         # --------------------------------
@@ -432,8 +434,8 @@ class RAGService:
             print(f"Text: {result['text'][:500]}")
 
         print("\n-------------------------\n")
-        
-        
+
+
 
         search_time = (
             time.perf_counter()
@@ -445,24 +447,19 @@ class RAGService:
         # 5. Filter and rerank results
         # --------------------------------
 
-        relevant_results = [
-            result
-            for result in results
-            if result["score"]
-            >= self.MIN_RELEVANCE_SCORE
-        ]
+        # Keep the strongest Qdrant candidates for reranking.
+        # The CrossEncoder will perform the final relevance ranking.
+        relevant_results = results[:15]
 
 
         reranker_start = time.perf_counter()
 
 
-        reranked_results = (
-    self.reranker_service.rerank(
-        question=retrieval_query,
-        results=relevant_results,
-        top_k=5,
-    )
-)
+        reranked_results = self.reranker_service.rerank(
+            question=retrieval_query,
+            results=relevant_results,
+            top_k=5,
+        )
 
 
         reranker_time = (
@@ -499,7 +496,7 @@ class RAGService:
 
 
         answer_results = reranked_results
-        
+
         if not answer_results:
 
             total_time = (
@@ -585,13 +582,13 @@ class RAGService:
         used_source_numbers = (
             llm_result["sources"]
         )
-        
+
         llm_time = (
                     time.perf_counter()
                     - llm_start
                 )
-        
-        
+
+
         # --------------------------------
         # Check if LLM found an answer
         # --------------------------------
@@ -764,7 +761,7 @@ class RAGService:
             "answer": answer,
             "sources": sources,
         }
-        
+
     def get_all_videos(
     self,
     limit: int = 10,
@@ -786,7 +783,7 @@ class RAGService:
             "videos": videos,
             "total": total,
         }
-        
+
     def update_video_metadata(
     self,
     video_id: str,
@@ -837,7 +834,7 @@ class RAGService:
             ],
             "status": "metadata_updated",
         }
-        
+
     def delete_video(
     self,
     video_id: str,
@@ -889,5 +886,5 @@ class RAGService:
             "status": "deleted",
             "video_id": video_id,
         }
-        
-        
+
+

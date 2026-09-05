@@ -20,79 +20,155 @@ class LLMService:
             raise ValueError("GROQ_API_KEY is not set in the .env file")
 
         self.client = Groq(api_key=api_key)
-        
+
+    def needs_question_rewrite(
+        self,
+        question: str,
+    ) -> bool:
+        question_lower = question.lower().strip()
+
+        ambiguous_phrases = [
+            "explain that",
+            "explain it",
+            "tell me more",
+            "what about it",
+            "what about that",
+            "how does this work",
+            "how does it work",
+            "can you explain that",
+            "can you explain it",
+            "more about that",
+            "more about it",
+        ]
+
+        for phrase in ambiguous_phrases:
+            if phrase in question_lower:
+                return True
+
+        return False
+
     def rewrite_question(
-    self,
-    question: str,
-    conversation_context: str,
+        self,
+        question: str,
+        conversation_context: str,
     ) -> str:
 
         # No previous conversation
         if not conversation_context.strip():
             return question
 
-
         system_prompt = """
-    You rewrite follow-up questions into standalone questions.
+You rewrite follow-up questions into standalone,
+retrieval-friendly questions for searching a YouTube
+video transcript.
 
-    Use the conversation history only to understand what
-    the user is referring to.
+Your job is ONLY to rewrite the user's current question.
+Do not answer it.
 
-    Rules:
+IMPORTANT:
 
-    1. Return only the rewritten question.
-    2. Do not answer the question.
-    3. Do not add information that is not present in the
-    conversation history or current question.
-    4. Make references like "that", "it", "this", or
-    "they" clear when possible.
-    5. Keep the rewritten question concise.
-    """
+The video transcript is the only source of truth.
 
+Conversation history may contain previous assistant
+answers that could be incorrect. Never introduce a
+tool, person, product, concept, or entity only because
+it appeared in an assistant message.
 
-        user_prompt = f"""
-    CONVERSATION HISTORY:
+Rules:
 
-    {conversation_context}
+1. Return ONLY the rewritten question.
 
+2. Do not answer the question.
 
-    CURRENT QUESTION:
+3. Do not add information that is not supported by
+   the current user question or clearly established
+   by previous USER messages.
 
-    {question}
+4. Resolve words such as:
+   "that", "it", "this", "they", "those", and "earlier"
+   when possible.
 
+5. Prefer information from previous USER messages over
+   information from previous ASSISTANT messages.
 
-    REWRITTEN STANDALONE QUESTION:
-    """
+6. Never introduce a new entity from a previous
+   assistant answer.
 
+7. Preserve technical terms and tool names explicitly
+   mentioned by the user.
 
-        response = (
-            self.client.chat.completions.create(
-                model="openai/gpt-oss-20b",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_prompt,
-                    },
-                    {
-                        "role": "user",
-                        "content": user_prompt,
-                    },
-                ],
-                temperature=0,
-            )
+8. Make the rewritten question concise and suitable
+   for semantic search against a transcript.
+
+9. If the reference cannot be resolved confidently,
+   keep the current question instead of guessing.
+
+Example:
+
+Previous USER:
+What is Sherlock?
+
+Current USER:
+Explain that more simply.
+
+Rewrite:
+What does Sherlock do?
+
+Example:
+
+Previous USER:
+What are Maigret and Sherlock?
+
+Current USER:
+What is the difference?
+
+Rewrite:
+What is the difference between Maigret and Sherlock?
+
+Example:
+
+Previous ASSISTANT:
+The tools are Maigret, Sherlock, and Myriad.
+
+Current USER:
+Explain that more simply.
+
+Rewrite:
+Explain that more simply.
+
+Do NOT rewrite it as:
+Explain Maigret, Sherlock, and Myriad.
+"""
+
+        user_prompt = f"""CONVERSATION HISTORY:
+
+{conversation_context}
+
+CURRENT QUESTION:
+
+{question}
+
+REWRITTEN STANDALONE QUESTION:"""
+
+        response = self.client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt,
+                },
+            ],
+            temperature=0,
         )
 
-
-        rewritten_question = (
-            response.choices[0]
-            .message.content
-        )
-
+        rewritten_question = response.choices[0].message.content
 
         if not rewritten_question:
-
             return question
-
 
         return rewritten_question.strip()
 

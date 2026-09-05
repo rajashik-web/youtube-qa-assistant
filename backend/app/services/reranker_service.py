@@ -24,35 +24,23 @@ class RerankerService:
         if not results:
             return []
 
-
         pairs = [
             (question, result["text"])
             for result in results
         ]
 
+        scores = self.model.predict(pairs)
 
-        scores = self.model.predict(
-            pairs
-        )
+        reranked_results = []
 
+        for result, score in zip(results, scores):
+            reranked_result = result.copy()
+            reranked_result["rerank_score"] = float(score)
+            reranked_results.append(reranked_result)
 
-        for result, score in zip(
-            results,
-            scores,
-        ):
-
-            result["rerank_score"] = float(
-                score
-            )
-
-
-        reranked_results = sorted(
-            results,
-            key=lambda item: item[
-                "rerank_score"
-            ],
+        reranked_results.sort(
+            key=lambda item: item["rerank_score"],
             reverse=True,
         )
-
 
         return reranked_results[:top_k]
