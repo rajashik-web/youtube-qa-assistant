@@ -1,9 +1,11 @@
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     Integer,
     String,
 )
+
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -14,19 +16,16 @@ class User(Base):
 
     __tablename__ = "users"
 
-
     id = Column(
         Integer,
         primary_key=True,
         index=True,
     )
 
-
     username = Column(
         String(100),
         nullable=False,
     )
-
 
     email = Column(
         String(255),
@@ -35,20 +34,30 @@ class User(Base):
         index=True,
     )
 
-
     password_hash = Column(
         String(255),
-        nullable=False,
+        nullable=True,
     )
 
+    auth_provider = Column(
+        String(20),
+        nullable=False,
+        default="local",
+    )
+
+    email_verified = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
 
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
     )
-    
+
     conversations = relationship(
-    "Conversation",
-    back_populates="user",
-    cascade="all, delete-orphan",
-)
+        "Conversation",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )

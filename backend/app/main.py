@@ -10,6 +10,7 @@ from app.database.database import (
 from app.models.user import User
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.models.password_reset_token import PasswordResetToken
 
 # Import routers
 from app.routers import (
