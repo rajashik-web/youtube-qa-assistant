@@ -1,5 +1,6 @@
 import os
-
+from contextlib import asynccontextmanager
+from app.services.rag_service import RAGService
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -33,14 +34,20 @@ Base.metadata.create_all(
     bind=engine
 )
 
-
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.rag_service = RAGService()
+    yield
+    
 # --------------------------------
 # Create FastAPI app
 # --------------------------------
 
 app = FastAPI(
-    title="YouTube Q&A Assistant API",
+    title="YouTube Video Q&A Assistant",
+    description="Ask questions about YouTube videos using RAG.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

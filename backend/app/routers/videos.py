@@ -1,6 +1,7 @@
 from fastapi import (
     APIRouter,
     BackgroundTasks,
+    Depends,
     HTTPException,
     Query,
 )
@@ -16,13 +17,12 @@ from app.services.rag_service import (
     RAGService,
 )
 
+from app.dependencies import get_rag_service
+
 
 router = APIRouter(
     tags=["Videos"],
 )
-
-
-rag_service = RAGService()
 
 
 # --------------------------------
@@ -36,6 +36,7 @@ rag_service = RAGService()
 def process_video(
     request: ProcessVideoRequest,
     background_tasks: BackgroundTasks,
+    rag_service: RAGService = Depends(get_rag_service),
 ):
 
     try:
@@ -94,6 +95,7 @@ def get_all_videos(
     status: str | None = Query(
         default=None,
     ),
+    rag_service: RAGService = Depends(get_rag_service),
 ):
 
     if status:
@@ -117,6 +119,7 @@ def get_all_videos(
 )
 def get_video_status(
     video_id: str,
+    rag_service: RAGService = Depends(get_rag_service),
 ):
 
     video_id = video_id.strip()
@@ -151,6 +154,7 @@ def get_video_status(
 )
 def delete_video(
     video_id: str,
+    rag_service: RAGService = Depends(get_rag_service),
 ):
 
     try:

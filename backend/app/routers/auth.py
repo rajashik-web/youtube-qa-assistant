@@ -1,6 +1,12 @@
 import os
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+)
+
 from app.auth.google_oauth import oauth
 
 from sqlalchemy.orm import Session
@@ -28,10 +34,21 @@ from app.auth.dependencies import (
     get_current_user,
 )
 
+
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
 )
+
+
+# --------------------------------
+# Configuration
+# --------------------------------
+
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "http://localhost:5173",
+).rstrip("/")
 
 
 auth_service = AuthService()
@@ -69,7 +86,7 @@ async def register_user(
         )
 
         verification_url = (
-            "http://localhost:5173/verify-email"
+            f"{FRONTEND_URL}/verify-email"
             f"?token={raw_token}"
         )
 
@@ -86,7 +103,8 @@ async def register_user(
             status_code=400,
             detail=str(error),
         )
-        
+
+
 # --------------------------------
 # Verify email
 # --------------------------------
@@ -117,7 +135,8 @@ def verify_email(
             status_code=400,
             detail=str(error),
         )
-        
+
+
 # --------------------------------
 # Resend verification email
 # --------------------------------
@@ -142,6 +161,7 @@ async def resend_verification(
     # Always return the same response.
     # This prevents account enumeration.
     if not user:
+
         return {
             "message": (
                 "If an unverified account exists for this email, "
@@ -151,6 +171,7 @@ async def resend_verification(
 
     # Google accounts are already verified by Google.
     if user.auth_provider == "google":
+
         return {
             "message": (
                 "If an unverified account exists for this email, "
@@ -160,6 +181,7 @@ async def resend_verification(
 
     # Already verified
     if user.email_verified:
+
         return {
             "message": (
                 "If an unverified account exists for this email, "
@@ -173,7 +195,7 @@ async def resend_verification(
     )
 
     verification_url = (
-        "http://localhost:5173/verify-email"
+        f"{FRONTEND_URL}/verify-email"
         f"?token={raw_token}"
     )
 
@@ -224,6 +246,7 @@ def login_user(
             detail=str(error),
         )
 
+
 # --------------------------------
 # Google login
 # --------------------------------
@@ -236,67 +259,98 @@ async def google_login(
     request: Request,
 ):
 
-    redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+    redirect_uri = os.getenv(
+        "GOOGLE_REDIRECT_URI"
+    )
 
     if not redirect_uri:
 
         raise HTTPException(
             status_code=500,
-            detail="Google OAuth redirect URI is not configured.",
+            detail=(
+                "Google OAuth redirect URI "
+                "is not configured."
+            ),
         )
 
     return await oauth.google.authorize_redirect(
         request,
         redirect_uri,
-    )  
-    
+    )
+
+
 # --------------------------------
 # Google OAuth callback
 # --------------------------------
 
 
-@router.get("/google/callback")
+@router.get(
+    "/google/callback"
+)
 async def google_callback(
     request: Request,
     db: Session = Depends(get_db),
 ):
+
     try:
-        # Exchange authorization code for Google tokens
-        token = await oauth.google.authorize_access_token(request)
+
+        # Exchange authorization code
+        # for Google tokens
+        token = await oauth.google.authorize_access_token(
+            request
+        )
 
         # Get Google user information
         user_info = token.get("userinfo")
 
         if not user_info:
+
             raise HTTPException(
                 status_code=400,
-                detail="Unable to retrieve Google user information.",
+                detail=(
+                    "Unable to retrieve Google "
+                    "user information."
+                ),
             )
 
-        # Google must confirm that the email is verified
+        # Google must confirm that
+        # the email is verified
         if not user_info.get("email_verified"):
+
             raise HTTPException(
                 status_code=400,
-                detail="Google email is not verified.",
+                detail=(
+                    "Google email is not verified."
+                ),
             )
 
         google_id = user_info.get("sub")
         email = user_info.get("email")
 
         if not google_id or not email:
+
             raise HTTPException(
                 status_code=400,
-                detail="Google account information is incomplete.",
+                detail=(
+                    "Google account information "
+                    "is incomplete."
+                ),
             )
 
-        username = user_info.get("name") or email.split("@")[0] 
+        username = (
+            user_info.get("name")
+            or email.split("@")[0]
+        )
 
-        # Create/login user and generate application JWT
-        access_token = auth_service.login_or_create_google_user(
-            db=db,
-            google_id=google_id,
-            email=email,
-            username=username,
+        # Create/login user and generate
+        # application JWT
+        access_token = (
+            auth_service.login_or_create_google_user(
+                db=db,
+                google_id=google_id,
+                email=email,
+                username=username,
+            )
         )
 
         return {
@@ -305,25 +359,27 @@ async def google_callback(
         }
 
     except ValueError as error:
+
         raise HTTPException(
             status_code=409,
             detail=str(error),
         )
 
     except HTTPException:
+
         raise
 
     except Exception as error:
+
         print(
-            f"Google OAuth callback error: "
+            "Google OAuth callback error: "
             f"{type(error).__name__}: {error}"
         )
 
         raise HTTPException(
             status_code=400,
             detail="Google authentication failed.",
-        )  
-
+        )
 
 
 # --------------------------------
@@ -336,7 +392,9 @@ async def google_callback(
     response_model=UserResponse,
 )
 def get_current_user_info(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
 
     return current_user
@@ -357,16 +415,21 @@ async def forgot_password(
 
     email = str(request.email).strip().lower()
 
-    user, raw_token = auth_service.create_password_reset_token(
-        db=db,
-        email=email,
+    user, raw_token = (
+        auth_service.create_password_reset_token(
+            db=db,
+            email=email,
+        )
     )
 
     # Always return the same response
     # whether the email exists or not.
     if user and raw_token:
 
-        reset_url = "http://localhost:5173/reset-password" f"?token={raw_token}"
+        reset_url = (
+            f"{FRONTEND_URL}/reset-password"
+            f"?token={raw_token}"
+        )
 
         await email_service.send_password_reset_email(
             email=user.email,
@@ -402,7 +465,9 @@ def reset_password(
             new_password=request.new_password,
         )
 
-        return {"message": "Password reset successfully."}
+        return {
+            "message": "Password reset successfully."
+        }
 
     except ValueError as error:
 

@@ -23,6 +23,8 @@ from app.services.rag_service import (
     RAGService,
 )
 
+from app.dependencies import get_rag_service
+
 from app.services.conversation_service import (
     ConversationService,
 )
@@ -32,8 +34,6 @@ router = APIRouter(
     tags=["Questions"],
 )
 
-
-rag_service = RAGService()
 
 conversation_service = ConversationService()
 
@@ -51,6 +51,9 @@ def ask_question(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(
         get_current_user_optional
+    ),
+    rag_service: RAGService = Depends(
+        get_rag_service
     ),
 ):
 
@@ -72,25 +75,14 @@ def ask_question(
         # Logged-in user
         # ----------------------------
 
-        if request.conversation_id is None:
+        conversation = None
 
-            # Generate title
-            title = (
-                conversation_service.generate_title(
-                    request.question
-                )
-            )
 
-            # Create new conversation
-            conversation = (
-                conversation_service.create_conversation(
-                    db=db,
-                    user_id=current_user.id,
-                    title=title,
-                )
-            )
+        # ----------------------------
+        # Existing conversation
+        # ----------------------------
 
-        else:
+        if request.conversation_id is not None:
 
             # ----------------------------
             # Verify conversation ownership
@@ -135,13 +127,17 @@ def ask_question(
         # Get conversation history
         # ----------------------------
 
-        recent_messages = (
-            conversation_service.get_recent_messages(
-                db=db,
-                conversation_id=conversation.id,
-                limit=6,
+        recent_messages = []
+
+        if conversation is not None:
+
+            recent_messages = (
+                conversation_service.get_recent_messages(
+                    db=db,
+                    conversation_id=conversation.id,
+                    limit=6,
+                )
             )
-        )
 
 
         # ----------------------------
@@ -183,18 +179,6 @@ def ask_question(
 
 
         # ----------------------------
-        # Save user question
-        # ----------------------------
-
-        conversation_service.add_message(
-            db=db,
-            conversation_id=conversation.id,
-            role="user",
-            content=request.question.strip(),
-        )
-
-
-        # ----------------------------
         # Generate RAG answer
         # ----------------------------
 
@@ -203,6 +187,40 @@ def ask_question(
             question=request.question.strip(),
             conversation_context=conversation_context,
             rewrite_context=rewrite_context,
+        )
+
+
+        # ----------------------------
+        # Create new conversation
+        # AFTER successful RAG
+        # ----------------------------
+
+        if conversation is None:
+
+            title = (
+                conversation_service.generate_title(
+                    request.question
+                )
+            )
+
+            conversation = (
+                conversation_service.create_conversation(
+                    db=db,
+                    user_id=current_user.id,
+                    title=title,
+                )
+            )
+
+
+        # ----------------------------
+        # Save user question
+        # ----------------------------
+
+        conversation_service.add_message(
+            db=db,
+            conversation_id=conversation.id,
+            role="user",
+            content=request.question.strip(),
         )
 
 
