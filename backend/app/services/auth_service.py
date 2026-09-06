@@ -94,6 +94,62 @@ class AuthService:
         )
 
         return access_token
+    
+    def login_or_create_google_user(
+        self,
+        db: Session,
+        google_id: str,
+        email: str,
+        username: str,
+    ) -> str:
+
+        # 1. Find existing Google user by Google ID
+        user = (
+            db.query(User)
+            .filter(User.google_id == google_id)
+            .first()
+        )
+
+        # Existing Google user → login
+        if user:
+            return create_access_token(
+                user_id=user.id,
+            )
+
+        # 2. Check whether this email already belongs to a user
+        existing_user = (
+            db.query(User)
+            .filter(User.email == email)
+            .first()
+        )
+
+        # Existing local account → do NOT silently link
+        if existing_user:
+            raise ValueError(
+                "An account with this email already exists. "
+                "Please log in using your existing account."
+            )
+
+        # 3. Create a new Google user
+        user = User(
+            username=username[:100],
+            email=email,
+            password_hash=None,
+            auth_provider="google",
+            google_id=google_id,
+            email_verified=True,
+        )
+
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        # 4. Issue your normal application JWT
+        access_token = create_access_token(
+            user_id=user.id,
+        )
+
+        return access_token
 
     def create_password_reset_token(
         self,
@@ -101,7 +157,14 @@ class AuthService:
         email: str,
     ) -> tuple[User | None, str | None]:
 
-        user = db.query(User).filter(User.email == email).first()
+        user = (
+            db.query(User)
+            .filter(
+                User.email == email,
+                User.auth_provider == "local",
+            )
+            .first()
+        )
 
         if not user:
             return None, None
@@ -159,13 +222,30 @@ class AuthService:
         db.commit()
         
     def create_email_verification_token(
-    self,
-    db,
-    user_id: int,
+        self,
+        db: Session,
+        user_id: int,
     ) -> str:
+
+        # Invalidate previous unused verification tokens
+        now = datetime.now(timezone.utc)
+
+        existing_tokens = (
+            db.query(EmailVerificationToken)
+            .filter(
+                EmailVerificationToken.user_id == user_id,
+                EmailVerificationToken.used_at.is_(None),
+            )
+            .all()
+        )
+
+        for existing_token in existing_tokens:
+            existing_token.used_at = now
+
+        # Create a new verification token
         raw_token, token_hash = generate_verification_token()
 
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+        expires_at = now + timedelta(minutes=30)
 
         verification_token = EmailVerificationToken(
             user_id=user_id,

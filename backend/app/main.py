@@ -1,5 +1,9 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.database.database import (
     Base,
@@ -37,6 +41,11 @@ Base.metadata.create_all(
 app = FastAPI(
     title="YouTube Q&A Assistant API",
     version="1.0.0",
+)
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SECRET_KEY"),
 )
 
 

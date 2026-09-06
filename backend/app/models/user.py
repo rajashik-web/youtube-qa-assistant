@@ -45,6 +45,13 @@ class User(Base):
         default="local",
     )
 
+    google_id = Column(
+        String(255),
+        unique=True,
+        nullable=True,
+        index=True,
+    )
+
     email_verified = Column(
         Boolean,
         nullable=False,

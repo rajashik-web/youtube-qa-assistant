@@ -1,8 +1,7 @@
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-)
+import os
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.auth.google_oauth import oauth
 
 from sqlalchemy.orm import Session
 
@@ -134,9 +133,14 @@ async def resend_verification(
 
     email = str(request.email).strip().lower()
 
-    user = db.query(User).filter(User.email == email).first()
+    user = (
+        db.query(User)
+        .filter(User.email == email)
+        .first()
+    )
 
-    # Don't reveal whether the account exists.
+    # Always return the same response.
+    # This prevents account enumeration.
     if not user:
         return {
             "message": (
@@ -145,9 +149,22 @@ async def resend_verification(
             )
         }
 
+    # Google accounts are already verified by Google.
+    if user.auth_provider == "google":
+        return {
+            "message": (
+                "If an unverified account exists for this email, "
+                "a verification link has been sent."
+            )
+        }
+
+    # Already verified
     if user.email_verified:
         return {
-            "message": "Email is already verified."
+            "message": (
+                "If an unverified account exists for this email, "
+                "a verification link has been sent."
+            )
         }
 
     raw_token = auth_service.create_email_verification_token(
@@ -206,6 +223,107 @@ def login_user(
             status_code=401,
             detail=str(error),
         )
+
+# --------------------------------
+# Google login
+# --------------------------------
+
+
+@router.get(
+    "/google/login",
+)
+async def google_login(
+    request: Request,
+):
+
+    redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+
+    if not redirect_uri:
+
+        raise HTTPException(
+            status_code=500,
+            detail="Google OAuth redirect URI is not configured.",
+        )
+
+    return await oauth.google.authorize_redirect(
+        request,
+        redirect_uri,
+    )  
+    
+# --------------------------------
+# Google OAuth callback
+# --------------------------------
+
+
+@router.get("/google/callback")
+async def google_callback(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    try:
+        # Exchange authorization code for Google tokens
+        token = await oauth.google.authorize_access_token(request)
+
+        # Get Google user information
+        user_info = token.get("userinfo")
+
+        if not user_info:
+            raise HTTPException(
+                status_code=400,
+                detail="Unable to retrieve Google user information.",
+            )
+
+        # Google must confirm that the email is verified
+        if not user_info.get("email_verified"):
+            raise HTTPException(
+                status_code=400,
+                detail="Google email is not verified.",
+            )
+
+        google_id = user_info.get("sub")
+        email = user_info.get("email")
+
+        if not google_id or not email:
+            raise HTTPException(
+                status_code=400,
+                detail="Google account information is incomplete.",
+            )
+
+        username = user_info.get("name") or email.split("@")[0] 
+
+        # Create/login user and generate application JWT
+        access_token = auth_service.login_or_create_google_user(
+            db=db,
+            google_id=google_id,
+            email=email,
+            username=username,
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+        }
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=409,
+            detail=str(error),
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as error:
+        print(
+            f"Google OAuth callback error: "
+            f"{type(error).__name__}: {error}"
+        )
+
+        raise HTTPException(
+            status_code=400,
+            detail="Google authentication failed.",
+        )  
+
 
 
 # --------------------------------
