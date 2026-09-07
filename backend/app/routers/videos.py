@@ -5,6 +5,11 @@ from fastapi import (
     HTTPException,
     Query,
 )
+from sqlalchemy.orm import Session
+
+from app.auth.dependencies import get_current_user
+from app.database.database import get_db
+from app.models.user import User
 
 from app.schemas.video import (
     ProcessVideoRequest,
@@ -13,9 +18,8 @@ from app.schemas.video import (
     VideoStatusResponse,
 )
 
-from app.services.rag_service import (
-    RAGService,
-)
+from app.services.rag_service import RAGService
+from app.services.video_storage_service import VideoStorageService
 
 from app.dependencies import get_rag_service
 
@@ -36,12 +40,16 @@ router = APIRouter(
 def process_video(
     request: ProcessVideoRequest,
     background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     rag_service: RAGService = Depends(get_rag_service),
 ):
 
     try:
 
         result = rag_service.process_video(
+            db=db,
+            user_id=current_user.id,
             url=request.url.strip(),
             force_reprocess=request.force_reprocess,
         )
@@ -52,6 +60,7 @@ def process_video(
             background_tasks.add_task(
                 rag_service.process_video_background,
                 result["video_id"],
+                current_user.id,
             )
 
         return result
@@ -95,6 +104,8 @@ def get_all_videos(
     status: str | None = Query(
         default=None,
     ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     rag_service: RAGService = Depends(get_rag_service),
 ):
 
@@ -103,6 +114,8 @@ def get_all_videos(
         status = status.strip().lower()
 
     return rag_service.get_all_videos(
+        db=db,
+        user_id=current_user.id,
         limit=limit,
         offset=offset,
         status=status,
@@ -119,13 +132,17 @@ def get_all_videos(
 )
 def get_video_status(
     video_id: str,
-    rag_service: RAGService = Depends(get_rag_service),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
 
     video_id = video_id.strip()
 
-    video = rag_service.video_storage.get_video(
-        video_id
+    video_storage = VideoStorageService(db)
+
+    video = video_storage.get_video(
+        video_id=video_id,
+        user_id=current_user.id,
     )
 
     if video is None:
@@ -154,13 +171,17 @@ def get_video_status(
 )
 def delete_video(
     video_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     rag_service: RAGService = Depends(get_rag_service),
 ):
 
     try:
 
         result = rag_service.delete_video(
-            video_id.strip()
+            db=db,
+            user_id=current_user.id,
+            video_id=video_id.strip(),
         )
 
         return result

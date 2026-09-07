@@ -133,24 +133,3 @@ def create_chunks(
         )
 
     return chunks
-
-def count_video_chunks(
-    self,
-    video_id: str,
-):
-    result = self.client.count(
-        collection_name=self.COLLECTION_NAME,
-        count_filter=Filter(
-            must=[
-                FieldCondition(
-                    key="video_id",
-                    match=MatchValue(
-                        value=video_id,
-                    ),
-                )
-            ]
-        ),
-        exact=True,
-    )
-
-    return result.count

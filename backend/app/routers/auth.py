@@ -1,4 +1,5 @@
 import os
+import urllib.parse
 
 from fastapi import (
     APIRouter,
@@ -6,6 +7,8 @@ from fastapi import (
     HTTPException,
     Request,
 )
+
+from fastapi.responses import RedirectResponse
 
 from app.auth.google_oauth import oauth
 
@@ -353,16 +356,24 @@ async def google_callback(
             )
         )
 
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-        }
+        return RedirectResponse(
+    url=(
+        f"{FRONTEND_URL}/oauth/callback"
+        f"?token={urllib.parse.quote(access_token)}"
+    )
+)
 
     except ValueError as error:
 
-        raise HTTPException(
-            status_code=409,
-            detail=str(error),
+        error_message = urllib.parse.quote(
+            str(error)
+        )
+
+        return RedirectResponse(
+            url=(
+                f"{FRONTEND_URL}/login"
+                f"?error={error_message}"
+            )
         )
 
     except HTTPException:
@@ -376,9 +387,15 @@ async def google_callback(
             f"{type(error).__name__}: {error}"
         )
 
-        raise HTTPException(
-            status_code=400,
-            detail="Google authentication failed.",
+        error_message = urllib.parse.quote(
+            "Google authentication failed."
+        )
+
+        return RedirectResponse(
+            url=(
+                f"{FRONTEND_URL}/login"
+                f"?error={error_message}"
+            )
         )
 
 

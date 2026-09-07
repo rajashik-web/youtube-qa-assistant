@@ -1,171 +1,41 @@
-import sqlite3
-from pathlib import Path
 from datetime import datetime, timezone
 
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
-# Project root:
-# youtube-qa-assistant/
-BASE_DIR = Path(__file__).resolve().parents[3]
-
-DATA_DIR = BASE_DIR / "data"
-
-DATA_DIR.mkdir(
-    parents=True,
-    exist_ok=True,
-)
+from app.models.video import Video
 
 
 class VideoStorageService:
 
-    def __init__(self):
-
-        self.db_path = (
-            DATA_DIR / "videos.db"
-        )
-
-        print(
-            "VIDEO DATABASE PATH:",
-            self.db_path.resolve(),
-        )
-
-        self._create_table()
-
-        # Add new columns to existing database
-        self._migrate_database()
-
-
-    def _get_connection(self):
-
-        return sqlite3.connect(
-            self.db_path
-        )
-
-
-    def _create_table(self):
-
-        connection = self._get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS videos (
-                video_id TEXT PRIMARY KEY,
-                title TEXT,
-                thumbnail_url TEXT,
-                status TEXT NOT NULL,
-                segments INTEGER DEFAULT 0,
-                chunks INTEGER DEFAULT 0,
-                created_at TEXT,
-                updated_at TEXT
-            )
-            """
-        )
-
-        connection.commit()
-
-        connection.close()
-
-
-    def _migrate_database(self):
-        """
-        Add missing columns for existing databases.
-        """
-
-        connection = self._get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            "PRAGMA table_info(videos)"
-        )
-
-        existing_columns = {
-            row[1]
-            for row in cursor.fetchall()
-        }
-
-        if "title" not in existing_columns:
-
-            cursor.execute(
-                """
-                ALTER TABLE videos
-                ADD COLUMN title TEXT
-                """
-            )
-
-            print(
-                "Added title column."
-            )
-
-
-        if "thumbnail_url" not in existing_columns:
-
-            cursor.execute(
-                """
-                ALTER TABLE videos
-                ADD COLUMN thumbnail_url TEXT
-                """
-            )
-
-            print(
-                "Added thumbnail_url column."
-            )
-
-
-        connection.commit()
-
-        connection.close()
+    def __init__(self, db: Session):
+        self.db = db
 
 
     def get_video(
         self,
         video_id: str,
+        user_id: int,
     ):
-
-        connection = self._get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            SELECT
-                video_id,
-                title,
-                thumbnail_url,
-                status,
-                segments,
-                chunks,
-                created_at,
-                updated_at
-            FROM videos
-            WHERE video_id = ?
-            """,
-            (video_id,),
+        video = (
+            self.db.query(Video)
+            .filter(
+                Video.video_id == video_id,
+                Video.user_id == user_id,
+            )
+            .first()
         )
 
-        row = cursor.fetchone()
-
-        connection.close()
-
-        if row is None:
+        if video is None:
             return None
 
-        return {
-            "video_id": row[0],
-            "title": row[1],
-            "thumbnail_url": row[2],
-            "status": row[3],
-            "segments": row[4],
-            "chunks": row[5],
-            "created_at": row[6],
-            "updated_at": row[7],
-        }
+        return self._to_dict(video)
 
 
     def create_or_update_video(
         self,
         video_id: str,
+        user_id: int,
         status: str,
         segments: int = 0,
         chunks: int = 0,
@@ -173,226 +43,174 @@ class VideoStorageService:
         thumbnail_url: str | None = None,
     ):
 
-        now = datetime.now(
-            timezone.utc
-        ).isoformat()
-
-        connection = self._get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            INSERT INTO videos (
-                video_id,
-                title,
-                thumbnail_url,
-                status,
-                segments,
-                chunks,
-                created_at,
-                updated_at
+        video = (
+            self.db.query(Video)
+            .filter(
+                Video.video_id == video_id,
+                Video.user_id == user_id,
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-
-            ON CONFLICT(video_id)
-            DO UPDATE SET
-                title = COALESCE(
-                    excluded.title,
-                    videos.title
-                ),
-                thumbnail_url = COALESCE(
-                    excluded.thumbnail_url,
-                    videos.thumbnail_url
-                ),
-                status = excluded.status,
-                segments = excluded.segments,
-                chunks = excluded.chunks,
-                updated_at = excluded.updated_at
-            """,
-            (
-                video_id,
-                title,
-                thumbnail_url,
-                status,
-                segments,
-                chunks,
-                now,
-                now,
-            ),
+            .first()
         )
 
-        connection.commit()
+        if video is None:
 
-        connection.close()
-        
+            video = Video(
+                video_id=video_id,
+                user_id=user_id,
+                title=title,
+                thumbnail_url=thumbnail_url,
+                status=status,
+                segments=segments,
+                chunks=chunks,
+            )
+
+            self.db.add(video)
+
+        else:
+
+            if title is not None:
+                video.title = title
+
+            if thumbnail_url is not None:
+                video.thumbnail_url = thumbnail_url
+
+            video.status = status
+            video.segments = segments
+            video.chunks = chunks
+            video.updated_at = datetime.now(timezone.utc)
+
+        self.db.commit()
+
+        self.db.refresh(video)
+
+        return self._to_dict(video)
+
+
     def update_video_metadata(
-    self,
-    video_id: str,
-    title: str | None,
-    thumbnail_url: str | None,
+        self,
+        video_id: str,
+        user_id: int,
+        title: str | None,
+        thumbnail_url: str | None,
     ):
 
-        now = datetime.now(
-            timezone.utc
-        ).isoformat()
-
-        connection = self._get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            UPDATE videos
-            SET
-                title = ?,
-                thumbnail_url = ?,
-                updated_at = ?
-            WHERE video_id = ?
-            """,
-            (
-                title,
-                thumbnail_url,
-                now,
-                video_id,
-            ),
+        video = (
+            self.db.query(Video)
+            .filter(
+                Video.video_id == video_id,
+                Video.user_id == user_id,
+            )
+            .first()
         )
 
-        connection.commit()
+        if video is None:
+            return None
 
-        connection.close()
+        video.title = title
+        video.thumbnail_url = thumbnail_url
+        video.updated_at = datetime.now(timezone.utc)
+
+        self.db.commit()
+
+        self.db.refresh(video)
+
+        return self._to_dict(video)
 
 
     def delete_video(
         self,
         video_id: str,
+        user_id: int,
     ):
 
-        connection = self._get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            DELETE FROM videos
-            WHERE video_id = ?
-            """,
-            (video_id,),
+        video = (
+            self.db.query(Video)
+            .filter(
+                Video.video_id == video_id,
+                Video.user_id == user_id,
+            )
+            .first()
         )
 
-        connection.commit()
+        if video is None:
+            return False
 
-        connection.close()
+        self.db.delete(video)
+
+        self.db.commit()
+
+        return True
 
 
     def get_all_videos(
         self,
+        user_id: int,
         limit: int = 10,
         offset: int = 0,
         status: str | None = None,
     ):
 
-        connection = self._get_connection()
-
-        cursor = connection.cursor()
-
-        query = """
-            SELECT
-                video_id,
-                title,
-                thumbnail_url,
-                status,
-                segments,
-                chunks,
-                created_at,
-                updated_at
-            FROM videos
-        """
-
-        parameters = []
+        query = (
+            self.db.query(Video)
+            .filter(
+                Video.user_id == user_id,
+            )
+        )
 
         if status:
-
-            query += """
-                WHERE status = ?
-            """
-
-            parameters.append(status)
-
-
-        query += """
-            ORDER BY updated_at DESC
-            LIMIT ?
-            OFFSET ?
-        """
-
-        parameters.extend(
-            [
-                limit,
-                offset,
-            ]
-        )
-
-        cursor.execute(
-            query,
-            parameters,
-        )
-
-        rows = cursor.fetchall()
-
-        connection.close()
-
-        videos = []
-
-        for row in rows:
-
-            videos.append(
-                {
-                    "video_id": row[0],
-                    "title": row[1],
-                    "thumbnail_url": row[2],
-                    "status": row[3],
-                    "segments": row[4],
-                    "chunks": row[5],
-                    "created_at": row[6],
-                    "updated_at": row[7],
-                }
+            query = query.filter(
+                Video.status == status
             )
 
-        return videos
+        videos = (
+            query
+            .order_by(Video.updated_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+
+        return [
+            self._to_dict(video)
+            for video in videos
+        ]
 
 
     def get_video_count(
         self,
+        user_id: int,
         status: str | None = None,
     ) -> int:
 
-        connection = self._get_connection()
-
-        cursor = connection.cursor()
+        query = (
+            self.db.query(
+                func.count(Video.id)
+            )
+            .filter(
+                Video.user_id == user_id,
+            )
+        )
 
         if status:
-
-            cursor.execute(
-                """
-                SELECT COUNT(*)
-                FROM videos
-                WHERE status = ?
-                """,
-                (status,),
+            query = query.filter(
+                Video.status == status
             )
 
-        else:
+        return query.scalar() or 0
 
-            cursor.execute(
-                """
-                SELECT COUNT(*)
-                FROM videos
-                """
-            )
 
-        count = cursor.fetchone()[0]
+    @staticmethod
+    def _to_dict(
+        video: Video,
+    ):
 
-        connection.close()
-
-        return count
+        return {
+            "video_id": video.video_id,
+            "title": video.title,
+            "thumbnail_url": video.thumbnail_url,
+            "status": video.status,
+            "segments": video.segments,
+            "chunks": video.chunks,
+            "created_at": video.created_at,
+            "updated_at": video.updated_at,
+        }

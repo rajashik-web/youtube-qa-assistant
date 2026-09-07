@@ -9,6 +9,8 @@ from app.services.video_storage_service import (
     VideoStorageService,
 )
 
+from app.database.database import SessionLocal
+
 from app.services.chunking_service import (
     create_chunks,
 )
@@ -43,27 +45,26 @@ import time
 
 class RAGService:
 
-    MIN_RELEVANCE_SCORE = 0.25
-
     def __init__(self):
+
         self.embedding_service = EmbeddingService()
 
         self.vector_store = QdrantVectorStore()
 
         self.llm_service = LLMService()
 
-        self.video_storage = VideoStorageService()
-
-        self.cache_service = CacheService()
-
         self.reranker_service = RerankerService()
 
-        self.vector_store.create_collection(vector_size=384)
+        self.vector_store.create_collection(
+            vector_size=384
+        )
 
     def process_video(
-        self,
-        url: str,
-        force_reprocess: bool = False,
+    self,
+    db,
+    user_id: int,
+    url: str,
+    force_reprocess: bool = False,
     ):
 
         # --------------------------------
@@ -72,11 +73,16 @@ class RAGService:
 
         video_id = extract_video_id(url)
 
+        video_storage = VideoStorageService(db)
+
         # --------------------------------
         # 2. Check existing video
         # --------------------------------
 
-        existing_video = self.video_storage.get_video(video_id)
+        existing_video = video_storage.get_video(
+            video_id=video_id,
+            user_id=user_id,
+        )
 
         # --------------------------------
         # 3. Already processed
@@ -99,7 +105,10 @@ class RAGService:
         # 4. Already processing
         # --------------------------------
 
-        if existing_video and existing_video["status"] == "processing":
+        if (
+            existing_video
+            and existing_video["status"] == "processing"
+        ):
 
             return {
                 "video_id": video_id,
@@ -118,8 +127,9 @@ class RAGService:
         # 6. Mark as processing
         # --------------------------------
 
-        self.video_storage.create_or_update_video(
+        video_storage.create_or_update_video(
             video_id=video_id,
+            user_id=user_id,
             title=metadata["title"],
             thumbnail_url=metadata["thumbnail_url"],
             status="processing",
@@ -133,11 +143,17 @@ class RAGService:
         }
 
     def process_video_background(
-        self,
-        video_id: str,
+    self,
+    video_id: str,
+    user_id: int,
     ):
 
+        db = SessionLocal()
+
         try:
+
+            video_storage = VideoStorageService(db)
+            cache_service = CacheService(db)
 
             # --------------------------------
             # Fetch transcript
@@ -145,7 +161,9 @@ class RAGService:
 
             transcript = fetch_transcript(video_id)
 
-            segments = format_transcript(transcript)
+            segments = format_transcript(
+                transcript
+            )
 
             # --------------------------------
             # Create chunks
@@ -156,13 +174,20 @@ class RAGService:
                 max_words=180,
             )
 
-            chunk_texts = [chunk["text"] for chunk in chunks]
+            chunk_texts = [
+                chunk["text"]
+                for chunk in chunks
+            ]
 
             # --------------------------------
             # Create embeddings
             # --------------------------------
 
-            embeddings = self.embedding_service.embed_documents(chunk_texts)
+            embeddings = (
+                self.embedding_service.embed_documents(
+                    chunk_texts
+                )
+            )
 
             # --------------------------------
             # Add video ID
@@ -176,15 +201,20 @@ class RAGService:
             # Remove old vectors
             # --------------------------------
 
-            if self.vector_store.video_exists(video_id):
+            if self.vector_store.video_exists(
+                video_id
+            ):
 
-                self.vector_store.delete_video(video_id)
+                self.vector_store.delete_video(
+                    video_id
+                )
 
             # --------------------------------
             # Clear old cached answers
             # --------------------------------
 
-            self.cache_service.delete_video_cache(video_id)
+            cache_service.delete_video_cache(video_id)
+
             # --------------------------------
             # Store vectors
             # --------------------------------
@@ -198,44 +228,71 @@ class RAGService:
             # Mark processed
             # --------------------------------
 
-            self.video_storage.create_or_update_video(
+            video_storage.create_or_update_video(
                 video_id=video_id,
+                user_id=user_id,
                 status="processed",
                 segments=len(segments),
                 chunks=len(chunks),
             )
 
-            print(f"Video processed successfully: " f"{video_id}")
+            print(
+                f"Video processed successfully: "
+                f"{video_id}"
+            )
 
         except Exception as error:
 
-            print(f"Video processing failed: " f"{error}")
+            print(
+                f"Video processing failed: "
+                f"{error}"
+            )
 
             # Clean partial vectors
-            if self.vector_store.video_exists(video_id):
 
-                self.vector_store.delete_video(video_id)
+            if self.vector_store.video_exists(
+                video_id
+            ):
+
+                self.vector_store.delete_video(
+                    video_id
+                )
 
             # Mark failed
-            self.video_storage.create_or_update_video(
+
+            video_storage.create_or_update_video(
                 video_id=video_id,
+                user_id=user_id,
                 status="failed",
             )
 
+        finally:
+
+            db.close()
+
     def ask_question(
-        self,
-        video_id: str,
-        question: str,
-        conversation_context: str = "",
-        rewrite_context: str = "",
-        top_k: int = 15,
-    ):
+    self,
+    db,
+    user_id: int,
+    video_id: str,
+    question: str,
+    conversation_context: str = "",
+    rewrite_context: str = "",
+    top_k: int = 15,
+):
 
         # --------------------------------
         # 1. Check video metadata
         # --------------------------------
 
-        video = self.video_storage.get_video(video_id)
+        video_storage = VideoStorageService(db)
+
+        video = video_storage.get_video(
+            video_id=video_id,
+            user_id=user_id,
+        )
+        
+        cache_service = CacheService(db)
 
         if video is None:
 
@@ -272,20 +329,20 @@ class RAGService:
         # conversation context
         if not conversation_context.strip():
 
-            cached_answer = self.cache_service.get_cached_answer(
-                video_id=video_id,
-                question=question,
-            )
+            cached_answer = cache_service.get_cached_answer(
+    video_id=video_id,
+    question=question,
+)
 
             if cached_answer:
 
                 if cached_answer["answer"].strip() == not_found_message:
 
                     # Remove old bad cache entry
-                    self.cache_service.delete_cached_answer(
-                        video_id=video_id,
-                        question=question,
-                    )
+                    cache_service.delete_cached_answer(
+    video_id=video_id,
+    question=question,
+)
 
                     print("Removed old not-found cache entry.")
 
@@ -535,12 +592,12 @@ class RAGService:
         # Only cache standalone questions
         if not conversation_context.strip():
 
-            self.cache_service.save_answer(
-                video_id=video_id,
-                question=question,
-                answer=answer,
-                sources=sources,
-            )
+            cache_service.save_answer(
+    video_id=video_id,
+    question=question,
+    answer=answer,
+    sources=sources,
+)
 
         # --------------------------------
         # 10. Print performance
@@ -572,19 +629,27 @@ class RAGService:
         }
 
     def get_all_videos(
-        self,
-        limit: int = 10,
-        offset: int = 0,
-        status: str | None = None,
+    self,
+    db,
+    user_id: int,
+    limit: int = 10,
+    offset: int = 0,
+    status: str | None = None,
     ):
 
-        videos = self.video_storage.get_all_videos(
+        video_storage = VideoStorageService(db)
+
+        videos = video_storage.get_all_videos(
+            user_id=user_id,
             limit=limit,
             offset=offset,
             status=status,
         )
 
-        total = self.video_storage.get_video_count(status=status)
+        total = video_storage.get_video_count(
+            user_id=user_id,
+            status=status,
+        )
 
         return {
             "videos": videos,
@@ -592,32 +657,44 @@ class RAGService:
         }
 
     def update_video_metadata(
-        self,
-        video_id: str,
+    self,
+    db,
+    user_id: int,
+    video_id: str,
     ):
+
+        video_storage = VideoStorageService(db)
 
         # --------------------------------
         # 1. Check video exists
         # --------------------------------
 
-        video = self.video_storage.get_video(video_id)
+        video = video_storage.get_video(
+            video_id=video_id,
+            user_id=user_id,
+        )
 
         if video is None:
 
-            raise ValueError("Video not found.")
+            raise ValueError(
+                "Video not found."
+            )
 
         # --------------------------------
         # 2. Fetch YouTube metadata
         # --------------------------------
 
-        metadata = fetch_video_metadata(video_id)
+        metadata = fetch_video_metadata(
+            video_id
+        )
 
         # --------------------------------
-        # 3. Update SQLite metadata
+        # 3. Update PostgreSQL metadata
         # --------------------------------
 
-        self.video_storage.update_video_metadata(
+        video_storage.update_video_metadata(
             video_id=video_id,
+            user_id=user_id,
             title=metadata["title"],
             thumbnail_url=metadata["thumbnail_url"],
         )
@@ -630,37 +707,52 @@ class RAGService:
         }
 
     def delete_video(
-        self,
-        video_id: str,
+    self,
+    db,
+    user_id: int,
+    video_id: str,
     ):
 
+        video_storage = VideoStorageService(db)
+        cache_service = CacheService(db)
+
         # --------------------------------
-        # 1. Check video metadata
+        # 1. Check video ownership
         # --------------------------------
 
-        video = self.video_storage.get_video(video_id)
+        video = video_storage.get_video(
+            video_id=video_id,
+            user_id=user_id,
+        )
 
         if video is None:
 
-            raise ValueError("Video not found.")
+            raise ValueError(
+                "Video not found."
+            )
 
         # --------------------------------
         # 2. Delete vectors from Qdrant
         # --------------------------------
 
-        self.vector_store.delete_video(video_id)
+        self.vector_store.delete_video(
+            video_id
+        )
 
         # --------------------------------
         # 3. Delete cached answers
         # --------------------------------
 
-        self.cache_service.delete_video_cache(video_id)
+        cache_service.delete_video_cache(video_id)
 
         # --------------------------------
-        # 4. Delete metadata from SQLite
+        # 4. Delete metadata from PostgreSQL
         # --------------------------------
 
-        self.video_storage.delete_video(video_id)
+        video_storage.delete_video(
+            video_id=video_id,
+            user_id=user_id,
+        )
 
         return {
             "status": "deleted",

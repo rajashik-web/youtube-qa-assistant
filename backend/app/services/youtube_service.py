@@ -16,6 +16,7 @@ from youtube_transcript_api import (
 
 class TranscriptFetchError(Exception):
     """Raised when a YouTube transcript cannot be fetched."""
+
     pass
 
 
@@ -37,7 +38,6 @@ def extract_video_id(
         if video_id:
             return video_id
 
-
     if hostname in (
         "www.youtube.com",
         "youtube.com",
@@ -55,7 +55,6 @@ def extract_video_id(
             if video_id:
                 return video_id[0]
 
-
         if parsed_url.path.startswith(
             "/shorts/"
         ):
@@ -64,7 +63,6 @@ def extract_video_id(
 
             if len(parts) >= 3 and parts[2]:
                 return parts[2]
-
 
     raise ValueError(
         "Invalid or unsupported YouTube URL"
@@ -94,10 +92,7 @@ def fetch_video_metadata(
         data = response.json()
 
         return {
-            "title": data.get(
-                "title",
-                "Unknown Title",
-            ),
+            "title": data.get("title") or "Unknown Title",
             "thumbnail_url": (
                 f"https://i.ytimg.com/vi/"
                 f"{video_id}/hqdefault.jpg"
@@ -112,7 +107,7 @@ def fetch_video_metadata(
         )
 
         return {
-            "title": None,
+            "title": "Unknown Title",
             "thumbnail_url": (
                 f"https://i.ytimg.com/vi/"
                 f"{video_id}/hqdefault.jpg"
@@ -138,20 +133,17 @@ def fetch_transcript(
 
             return transcript
 
-
         except TranscriptsDisabled:
 
             raise TranscriptFetchError(
                 "Transcript is disabled for this video."
             )
 
-
         except NoTranscriptFound:
 
             raise TranscriptFetchError(
                 "No transcript was found for this video."
             )
-
 
         except Exception as error:
 
@@ -166,7 +158,6 @@ def fetch_transcript(
             if attempt < retries - 1:
 
                 time.sleep(3)
-
 
     raise TranscriptFetchError(
         f"Could not fetch transcript: {last_error}"

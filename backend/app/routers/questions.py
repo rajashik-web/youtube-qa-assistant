@@ -9,9 +9,8 @@ from sqlalchemy.orm import Session
 from app.database.database import get_db
 
 from app.auth.dependencies import (
-    get_current_user_optional,
+    get_current_user,
 )
-
 from app.models.user import User
 
 from app.schemas.question import (
@@ -49,27 +48,15 @@ conversation_service = ConversationService()
 def ask_question(
     request: AskQuestionRequest,
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(
-        get_current_user_optional
-    ),
+    current_user: User = Depends(
+    get_current_user
+),
     rag_service: RAGService = Depends(
         get_rag_service
     ),
 ):
 
     try:
-
-        # ----------------------------
-        # Guest user
-        # ----------------------------
-
-        if current_user is None:
-
-            return rag_service.ask_question(
-                video_id=request.video_id.strip(),
-                question=request.question.strip(),
-            )
-
 
         # ----------------------------
         # Logged-in user
@@ -183,11 +170,13 @@ def ask_question(
         # ----------------------------
 
         result = rag_service.ask_question(
-            video_id=request.video_id.strip(),
-            question=request.question.strip(),
-            conversation_context=conversation_context,
-            rewrite_context=rewrite_context,
-        )
+    db=db,
+    user_id=current_user.id,
+    video_id=request.video_id.strip(),
+    question=request.question.strip(),
+    conversation_context=conversation_context,
+    rewrite_context=rewrite_context,
+)
 
 
         # ----------------------------

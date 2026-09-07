@@ -1,100 +1,62 @@
-import sqlite3
 import json
-from pathlib import Path
-from datetime import datetime, timezone
 
+from sqlalchemy.orm import Session
 
-BASE_DIR = Path(__file__).resolve().parents[3]
-
-DATA_DIR = BASE_DIR / "data"
-
-DATA_DIR.mkdir(
-    parents=True,
-    exist_ok=True,
-)
+from app.models.question_cache import QuestionCache
 
 
 class CacheService:
 
-    def __init__(self):
+    def __init__(self, db: Session):
+        self.db = db
 
-        self.db_path = (
-            DATA_DIR / "cache.db"
-        )
+    @staticmethod
+    def _normalize_question(
+        question: str,
+    ) -> str:
 
-        self._create_table()
+        return question.strip().lower()
 
-
-    def _get_connection(self):
-
-        return sqlite3.connect(
-            self.db_path
-        )
-
-
-    def _create_table(self):
-
-        connection = self._get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS question_cache (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                video_id TEXT NOT NULL,
-                question TEXT NOT NULL,
-                answer TEXT NOT NULL,
-                sources TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                UNIQUE(video_id, question)
-            )
-            """
-        )
-
-        connection.commit()
-
-        connection.close()
-        
     def get_cached_answer(
-    self,
-    video_id: str,
-    question: str,
+        self,
+        video_id: str,
+        question: str,
     ):
 
-        connection = self._get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            SELECT
-                answer,
-                sources
-            FROM question_cache
-            WHERE video_id = ?
-            AND question = ?
-            """,
-            (
-                video_id,
-                question,
-            ),
+        question = self._normalize_question(
+            question
         )
 
-        row = cursor.fetchone()
+        cache_entry = (
+            self.db.query(QuestionCache)
+            .filter(
+                QuestionCache.video_id == video_id,
+                QuestionCache.question == question,
+            )
+            .first()
+        )
 
-        connection.close()
+        if cache_entry is None:
 
-        if row is None:
             return None
 
-        return {
-            "answer": row[0],
-            "sources": json.loads(
-                row[1]
-            ),
-        }
+        try:
 
+            sources = json.loads(
+                cache_entry.sources
+            )
+
+        except (
+            json.JSONDecodeError,
+            TypeError,
+        ):
+
+            sources = []
+
+        return {
+            "answer": cache_entry.answer,
+            "sources": sources,
+        }
 
     def save_answer(
         self,
@@ -104,86 +66,98 @@ class CacheService:
         sources: list,
     ):
 
-        now = datetime.now(
-            timezone.utc
-        ).isoformat()
-
-        connection = self._get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            INSERT OR REPLACE INTO question_cache (
-                video_id,
-                question,
-                answer,
-                sources,
-                created_at
-            )
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                video_id,
-                question,
-                answer,
-                json.dumps(sources),
-                now,
-            ),
+        question = self._normalize_question(
+            question
         )
 
-        connection.commit()
+        cache_entry = (
+            self.db.query(QuestionCache)
+            .filter(
+                QuestionCache.video_id == video_id,
+                QuestionCache.question == question,
+            )
+            .first()
+        )
 
-        connection.close()
-        
+        sources_json = json.dumps(
+            sources
+        )
+
+        if cache_entry is None:
+
+            cache_entry = QuestionCache(
+                video_id=video_id,
+                question=question,
+                answer=answer,
+                sources=sources_json,
+            )
+
+            self.db.add(
+                cache_entry
+            )
+
+        else:
+
+            cache_entry.answer = answer
+            cache_entry.sources = sources_json
+
+        self.db.commit()
+
+        self.db.refresh(
+            cache_entry
+        )
+
     def delete_cached_answer(
         self,
         video_id: str,
         question: str,
     ):
 
-        connection = self._get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            DELETE FROM question_cache
-            WHERE video_id = ?
-            AND question = ?
-            """,
-            (
-                video_id,
-                question,
-            ),
+        question = self._normalize_question(
+            question
         )
 
-        connection.commit()
+        cache_entry = (
+            self.db.query(QuestionCache)
+            .filter(
+                QuestionCache.video_id == video_id,
+                QuestionCache.question == question,
+            )
+            .first()
+        )
 
-        connection.close()
-        
+        if cache_entry is None:
+
+            return False
+
+        self.db.delete(
+            cache_entry
+        )
+
+        self.db.commit()
+
+        return True
+
     def delete_video_cache(
-    self,
-    video_id: str,
+        self,
+        video_id: str,
     ):
 
-        connection = self._get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            DELETE FROM question_cache
-            WHERE video_id = ?
-            """,
-            (video_id,),
+        deleted_count = (
+            self.db.query(QuestionCache)
+            .filter(
+                QuestionCache.video_id == video_id
+            )
+            .delete(
+                synchronize_session=False
+            )
         )
 
-        connection.commit()
-
-        connection.close()
+        self.db.commit()
 
         print(
-            f"Deleted cached answers for video: "
-            f"{video_id}"
+            f"Deleted {deleted_count} cached answers "
+            f"for video: {video_id}"
         )
+
+        return deleted_count

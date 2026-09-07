@@ -68,3 +68,9 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    
+    videos = relationship(
+    "Video",
+    back_populates="user",
+    cascade="all, delete-orphan",
+)

@@ -24,11 +24,11 @@ from app.models.email_verification_token import EmailVerificationToken
 class AuthService:
 
     def register_user(
-    self,
-    db: Session,
-    username: str,
-    email: str,
-    password: str,
+        self,
+        db: Session,
+        username: str,
+        email: str,
+        password: str,
     ) -> User:
 
         # Check existing email
@@ -57,17 +57,13 @@ class AuthService:
         return user
 
     def login_user(
-    self,
-    db: Session,
-    email: str,
-    password: str,
+        self,
+        db: Session,
+        email: str,
+        password: str,
     ) -> str:
 
-        user = (
-            db.query(User)
-            .filter(User.email == email)
-            .first()
-        )
+        user = db.query(User).filter(User.email == email).first()
 
         if not user:
             raise ValueError("Invalid email or password.")
@@ -85,16 +81,14 @@ class AuthService:
             raise ValueError("Invalid email or password.")
 
         if not user.email_verified:
-            raise ValueError(
-                "Please verify your email before logging in."
-            )
+            raise ValueError("Please verify your email before logging in.")
 
         access_token = create_access_token(
             user_id=user.id,
         )
 
         return access_token
-    
+
     def login_or_create_google_user(
         self,
         db: Session,
@@ -104,11 +98,7 @@ class AuthService:
     ) -> str:
 
         # 1. Find existing Google user by Google ID
-        user = (
-            db.query(User)
-            .filter(User.google_id == google_id)
-            .first()
-        )
+        user = db.query(User).filter(User.google_id == google_id).first()
 
         # Existing Google user → login
         if user:
@@ -117,11 +107,7 @@ class AuthService:
             )
 
         # 2. Check whether this email already belongs to a user
-        existing_user = (
-            db.query(User)
-            .filter(User.email == email)
-            .first()
-        )
+        existing_user = db.query(User).filter(User.email == email).first()
 
         # Existing local account → do NOT silently link
         if existing_user:
@@ -220,7 +206,7 @@ class AuthService:
         reset_token.used_at = now
 
         db.commit()
-        
+
     def create_email_verification_token(
         self,
         db: Session,
@@ -257,19 +243,17 @@ class AuthService:
         db.commit()
 
         return raw_token
-    
+
     def verify_email(
-    self,
-    db,
-    token: str,
+        self,
+        db,
+        token: str,
     ) -> None:
         token_hash = hash_verification_token(token)
 
         verification_token = (
             db.query(EmailVerificationToken)
-            .filter(
-                EmailVerificationToken.token_hash == token_hash
-            )
+            .filter(EmailVerificationToken.token_hash == token_hash)
             .first()
         )
 
@@ -284,11 +268,7 @@ class AuthService:
         if verification_token.expires_at <= now:
             raise ValueError("Verification token has expired.")
 
-        user = (
-            db.query(User)
-            .filter(User.id == verification_token.user_id)
-            .first()
-        )
+        user = db.query(User).filter(User.id == verification_token.user_id).first()
 
         if not user:
             raise ValueError("User not found.")
