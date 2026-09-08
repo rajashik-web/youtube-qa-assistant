@@ -6,17 +6,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.database.database import (
-    Base,
-    engine,
+from app.database.database import engine
+
+from app.models import (
+    User,
+    Conversation,
+    Message,
+    Video,
+    QuestionCache,
+    PasswordResetToken,
+    EmailVerificationToken,
 )
-
-# Import models so SQLAlchemy registers them
-from app.models.user import User
-from app.models.conversation import Conversation
-from app.models.message import Message
-from app.models.password_reset_token import PasswordResetToken
-
 # Import routers
 from app.routers import (
     auth,
@@ -26,13 +26,6 @@ from app.routers import (
 )
 
 
-# --------------------------------
-# Create database tables
-# --------------------------------
-
-Base.metadata.create_all(
-    bind=engine
-)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi_mail import (
@@ -8,7 +9,11 @@ from fastapi_mail import (
     MessageType,
 )
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parents[3]
+
+load_dotenv(
+    BASE_DIR / ".env"
+)
 
 
 class EmailService:

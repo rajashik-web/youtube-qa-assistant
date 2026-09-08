@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -53,9 +55,8 @@ class VideoListItem(BaseModel):
 
     chunks: int
 
-    created_at: str | None = None
-
-    updated_at: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class VideoListResponse(BaseModel):

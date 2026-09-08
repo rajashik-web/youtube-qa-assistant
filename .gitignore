@@ -1,4 +1,163 @@
-.venv/
+# ==============================
+# Python
+# ==============================
+
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python packaging
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ==============================
+# Environment / Secrets
+# ==============================
+
 .env
+.env.*
+!.env.example
+
+# ==============================
+# FastAPI / Application
+# ==============================
+
+*.log
+logs/
+
+# ==============================
+# Testing / Coverage
+# ==============================
+
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# ==============================
+# Jupyter
+# ==============================
+
+.ipynb_checkpoints/
+
+# ==============================
+# VS Code
+# ==============================
+
+.vscode/
+*.code-workspace
+
+# ==============================
+# PyCharm
+# ==============================
+
+.idea/
+
+# ==============================
+# OS
+# ==============================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==============================
+# Database / Local Data
+# ==============================
+
+*.db
+*.sqlite
+*.sqlite3
+
+# ==============================
+# Uploaded / Generated files
+# ==============================
+
+uploads/
+tmp/
+temp/
+generated/
+*.tmp
+
+# ==============================
+# Node / React
+# ==============================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output
+dist/
+build/
+
+# Vite
+.vite/
+
+# ==============================
+# Frontend Environment
+# ==============================
+
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# ==============================
+# Backend Environment
+# ==============================
+
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# ==============================
+# Secrets / Credentials
+# ==============================
+
+*.pem
+*.key
+*.crt
+credentials.json
+service-account*.json
+
+# ==============================
+# AI / ML generated files
+# ==============================
+
+*.pt
+*.pth
+*.h5
+*.keras
+*.onnx
+*.safetensors
+
+# ==============================
+# Cache
+# ==============================
+
+.cache/
+.pyre/
+.mypy_cache/
+.ruff_cache/
+
+# ==============================
+# Temporary files
+# ==============================
+
+*.bak
+*.swp
+*.swo
+*~
