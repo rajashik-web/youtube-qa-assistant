@@ -1,56 +1,65 @@
 :root {
-  /* ---- Color: ink (sidebar / dark surfaces) ---- */
-  --ink-950: #0e0f15;
-  --ink-900: #14151d;
-  --ink-800: #1c1e29;
-  --ink-700: #272935;
-  --ink-600: #363948;
-  --line-dark: #2b2d3a;
+  /* ---- Color: ink (sidebar / dark accents) ---- */
+  --ink-950: #121316;
+  --ink-900: #18191f;
+  --ink-800: #22232a;
+  --ink-700: #2c2e37;
+  --ink-600: #3b3e4a;
+  --line-dark: #2a2c37;
 
-  /* ---- Color: paper (main surface) ---- */
+  /* ---- Color: paper (warm off-white / clean surfaces) ---- */
   --paper-0: #ffffff;
-  --paper-50: #faf9f6;
-  --paper-100: #f2f0ea;
-  --line: #e6e3da;
-  --line-strong: #d8d4c8;
+  --paper-50: #fafaf8;
+  --paper-100: #f4f3ef;
+  --paper-200: #eceae3;
+  --line: #e7e5e0;
+  --line-strong: #d7d4cc;
+  --line-subtle: #ede9e3;
+  --surface-100: #f4f3ef;
 
-  /* ---- Text ---- */
-  --text-900: #16171d;
-  --text-700: #40414d;
-  --text-600: #5c5e6b;
-  --text-500: #82838f;
-  --text-inverse: #f5f4f0;
-  --text-inverse-muted: #9a9cad;
-  --text-inverse-faint: #6c6e80;
+  /* ---- Text (charcoal & neutral tones) ---- */
+  --text-900: #1c1917;
+  --text-800: #292524;
+  --text-700: #44403c;
+  --text-600: #57534e;
+  --text-500: #78716c;
+  --text-400: #a8a29e;
+  --text-inverse: #fafaf9;
+  --text-inverse-muted: #a8a29e;
+  --text-inverse-faint: #78716c;
 
-  /* ---- Accent (indigo-violet, used sparingly) ---- */
-  --accent-700: #4443b8;
-  --accent-600: #5453d6;
-  --accent-500: #6f6ee0;
-  --accent-100: #ecebfb;
-  --accent-050: #f4f4fd;
+  /* ---- Accent: restrained red (YouTube / Reel recording red) ---- */
+  --accent-700: #b91c1c;
+  --accent-600: #dc2626;
+  --accent-500: #ef4444;
+  --accent-100: #fee2e2;
+  --accent-050: #fef2f2;
 
   /* ---- Status ---- */
-  --success-600: #2e9e6e;
-  --success-100: #e2f5ec;
-  --warning-600: #c9862c;
-  --warning-100: #faf0dc;
-  --danger-600: #d0483f;
-  --danger-100: #fbe8e6;
+  --success-600: #16a34a;
+  --success-100: #dcfce7;
+  --warning-600: #d97706;
+  --warning-100: #fef3c7;
+  --danger-600: #dc2626;
+  --danger-100: #fee2e2;
 
-  /* ---- Type ---- */
-  --font-display: 'Space Grotesk', 'Inter', sans-serif;
+  /* ---- Typography ---- */
+  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
 
   /* ---- Layout ---- */
-  --sidebar-width: 320px;
+  --sidebar-width: 300px;
+  --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 10px;
-  --radius-lg: 16px;
-  --shadow-sm: 0 1px 2px rgba(20, 21, 29, 0.06);
-  --shadow-md: 0 4px 16px rgba(20, 21, 29, 0.08);
-  --shadow-lg: 0 12px 32px rgba(20, 21, 29, 0.14);
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* ---- Shadows ---- */
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.04);
+  --shadow-md: 0 4px 12px rgba(28, 25, 23, 0.06);
+  --shadow-lg: 0 12px 28px rgba(28, 25, 23, 0.09);
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }

@@ -80,19 +80,27 @@ export default function UrlComposer({ variant = 'welcome', onClose }) {
             if (validationError) setValidationError(null);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Paste a YouTube link…"
+          placeholder="Paste a YouTube URL"
           disabled={isSubmitting}
           className={composerStyles.input}
-          aria-label="YouTube video URL"
+          aria-label="Paste a YouTube URL"
           autoFocus={variant === 'panel'}
         />
         <button
           type="submit"
           className={composerStyles.submit}
           disabled={isSubmitting || !url.trim()}
-          aria-label="Process video"
+          aria-label="Add video"
+          style={{ minWidth: '92px', gap: '6px', fontSize: '13px', fontWeight: 600 }}
         >
-          {isSubmitting ? <Spinner size={15} /> : <SendIcon />}
+          {isSubmitting ? (
+            <Spinner size={15} />
+          ) : (
+            <>
+              <SendIcon />
+              <span>Add video</span>
+            </>
+          )}
         </button>
       </div>
       {validationError ? (
@@ -124,9 +132,9 @@ export default function UrlComposer({ variant = 'welcome', onClose }) {
     <div className={styles.welcomeWrap}>
       <div className={styles.welcomeInner}>
         <h1 className={styles.welcomeHeadline}>
-          Ask any YouTube video <br /> anything
+          Add a YouTube video to start asking questions.
         </h1>
-        <p className={styles.welcomeSubtext}>Paste a YouTube link to get started</p>
+        <p className={styles.welcomeSubtext}>Paste any public YouTube link to process its transcript and begin your conversation.</p>
         {composer}
       </div>
     </div>

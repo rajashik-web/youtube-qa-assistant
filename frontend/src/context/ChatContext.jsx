@@ -49,7 +49,7 @@ export function convertBackendMessages(messages) {
         question: msg.content,
         status: 'done',
         answer: next.content,
-        sources: [],
+        sources: Array.isArray(next?.sources) ? next.sources : [],
         notFound: false,
         errorMessage: null,
       });

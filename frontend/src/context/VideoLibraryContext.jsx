@@ -26,8 +26,19 @@ function reducer(state, action) {
   switch (action.type) {
     case 'FETCH_START':
       return { ...state, libraryStatus: 'loading', libraryError: null };
-    case 'FETCH_SUCCESS':
-      return { ...state, libraryStatus: 'ready', videos: action.videos };
+    case 'FETCH_SUCCESS': {
+      const selectedStillValid = action.videos.some((v) => v.video_id === state.selectedVideoId);
+      return {
+        ...state,
+        libraryStatus: 'ready',
+        videos: action.videos,
+        selectedVideoId: selectedStillValid
+          ? state.selectedVideoId
+          : action.videos.length > 0
+          ? action.videos[0].video_id
+          : null,
+      };
+    }
     case 'FETCH_ERROR':
       return { ...state, libraryStatus: 'error', libraryError: action.error };
     case 'UPSERT_VIDEO':

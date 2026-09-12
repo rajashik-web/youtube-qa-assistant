@@ -13,15 +13,7 @@ import { getToken, clearToken } from '../utils/tokenStorage';
 
 const RAW_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-if (!RAW_BASE_URL) {
-  // Fail loudly in dev rather than silently calling window.location.origin.
-  // eslint-disable-next-line no-console
-  console.warn(
-    'VITE_API_BASE_URL is not set. Copy .env.example to .env and point it at your backend.'
-  );
-}
-
-export const API_BASE_URL = (RAW_BASE_URL || '').replace(/\/+$/, '');
+export const API_BASE_URL = (RAW_BASE_URL !== undefined && RAW_BASE_URL !== null ? RAW_BASE_URL : '').replace(/\/+$/, '');
 
 export class ApiError extends Error {
   constructor(message, { status = null, code = 'UNKNOWN', cause = null } = {}) {
@@ -79,10 +71,6 @@ function friendlyMessageFor(status, backendMessage) {
 }
 
 async function request(path, { method = 'GET', body, signal, params } = {}) {
-  if (!API_BASE_URL) {
-    throw new ApiError('The backend address is not configured.', { code: 'NO_BASE_URL' });
-  }
-
   let url = `${API_BASE_URL}${path}`;
   if (params && Object.keys(params).length > 0) {
     const query = new URLSearchParams(

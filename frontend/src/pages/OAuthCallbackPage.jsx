@@ -1,67 +1,100 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { Play, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Spinner from '../components/common/Spinner';
 import styles from './AuthPages.module.css';
 
-// The backend redirects here as /oauth/callback?token=<jwt> once Google
-// auth succeeds server-side (routers/auth.py: GET /auth/google/callback).
-// This page's only job is to hand that token to AuthContext through the
-// existing tokenStorage/apiClient architecture — no separate auth system.
 export default function OAuthCallbackPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
+  const queryError = searchParams.get('error');
   const { completeOAuthLogin } = useAuth();
 
-  // 'processing' | 'success' | 'error'
   const [status, setStatus] = useState(token ? 'processing' : 'error');
   const [errorMessage, setErrorMessage] = useState(
-    token ? null : 'This sign-in link is missing its token.'
+    queryError || (token ? null : 'Authentication token missing from callback parameters.')
   );
 
-  // React.StrictMode double-invokes effects in dev; without this guard the
-  // token would be exchanged for a session twice in quick succession.
-  const hasRunRef = useRef(false);
+  const hasExecutedRef = useRef(false);
 
   useEffect(() => {
-    if (!token || hasRunRef.current) return;
-    hasRunRef.current = true;
+    if (!token || hasExecutedRef.current) return;
+    hasExecutedRef.current = true;
 
     completeOAuthLogin(token)
-      .then(() => setStatus('success'))
-      .catch(() => {
-        setErrorMessage('This sign-in link is invalid or has expired.');
+      .then(() => {
+        setStatus('success');
+      })
+      .catch((err) => {
+        const message =
+          err?.message || 'Authentication failed: unable to verify session credentials.';
+        setErrorMessage(message);
         setStatus('error');
       });
   }, [token, completeOAuthLogin]);
 
-  // Once authenticated, replace this URL (token and all) with "/" — it
-  // never lingers in the address bar or in back-history.
+  // After successful validation: redirect to /app
   if (status === 'success') {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/app" replace />;
   }
 
   return (
     <div className={styles.wrap}>
       <div className={styles.card}>
-        <div className={styles.brandMark}>
-          <img src="/logo.png" alt="" />
-        </div>
-        <h1 className={styles.title}>{status === 'error' ? 'Sign-in failed' : 'Signing you in…'}</h1>
+        <Link to="/" className={styles.brandLink}>
+          <div className={styles.brandIcon} aria-hidden="true">
+            <Play size={16} fill="currentColor" />
+          </div>
+          <span className={styles.brandName}>
+            Reel<span className={styles.brandAccent}>.</span>
+          </span>
+        </Link>
 
         {status === 'processing' && (
-          <div className={styles.status}>
-            <Spinner size={18} />
-            <span>Confirming your Google account…</span>
+          <div className={styles.callbackStatus}>
+            <Spinner size={28} />
+            <h2 className={styles.title} style={{ fontSize: '18px', margin: '4px 0' }}>
+              Authenticating with Google…
+            </h2>
+            <p className={styles.body} style={{ marginBottom: 0 }}>
+              Verifying your profile and restoring your video library.
+            </p>
           </div>
         )}
 
-        {status === 'error' && <p className={styles.errorNotice}>{errorMessage}</p>}
-
         {status === 'error' && (
-          <Link to="/login" className={styles.link}>
-            Back to login
-          </Link>
+          <div>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                background: 'var(--danger-100)',
+                color: 'var(--danger-600)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px',
+              }}
+            >
+              <AlertCircle size={24} />
+            </div>
+
+            <h2 className={styles.title}>Sign-in Failed</h2>
+            <div className={styles.errorNotice}>{errorMessage}</div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 16 }}>
+              <Link to="/login" className={styles.googleButton} style={{ textDecoration: 'none' }}>
+                <RefreshCw size={16} />
+                <span>Retry with Google</span>
+              </Link>
+
+              <Link to="/" className={styles.backHomeLink} style={{ justifyContent: 'center' }}>
+                <ArrowLeft size={14} /> Back to homepage
+              </Link>
+            </div>
+          </div>
         )}
       </div>
     </div>

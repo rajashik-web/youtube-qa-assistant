@@ -1,35 +1,33 @@
-import { apiClient } from './client';
+import { apiClient } from "./client";
 
 /**
- * Submits a YouTube URL for processing.
- * Backend response includes: video_id, title, thumbnail_url, status, segments, chunks
+ * Fetch the authenticated user's video library.
+ */
+export function getVideos(opts) {
+  return apiClient.get("/videos", opts);
+}
+
+/**
+ * Submit a YouTube URL for processing (or re-processing).
  */
 export function processVideo({ url, forceReprocess = false }, opts) {
-  return apiClient.post('/process-video', { url, force_reprocess: forceReprocess }, opts);
+  return apiClient.post(
+    "/videos/process",
+    { url, force_reprocess: forceReprocess },
+    opts,
+  );
 }
 
 /**
- * Returns the processed video library. Supports pagination and status filtering.
- * Backend contract: GET /videos?limit=&offset=&status=
- */
-export function getVideos({ limit = 50, offset = 0, status } = {}, opts) {
-  return apiClient.get('/videos', {
-    ...opts,
-    params: { limit, offset, status },
-  });
-}
-
-/**
- * Returns current status + metadata for a single video. Used for polling
- * while a video is processing.
+ * Fetch the current processing status of a specific video.
  */
 export function getVideoStatus(videoId, opts) {
-  return apiClient.get(`/video/${encodeURIComponent(videoId)}/status`, opts);
+  return apiClient.get(`/videos/${videoId}/status`, opts);
 }
 
 /**
- * Deletes a video and all associated data (metadata, vectors, cached answers).
+ * Delete a video from the library.
  */
 export function deleteVideo(videoId, opts) {
-  return apiClient.delete(`/video/${encodeURIComponent(videoId)}`, opts);
+  return apiClient.delete(`/videos/${videoId}`, opts);
 }

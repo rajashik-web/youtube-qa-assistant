@@ -1,9 +1,10 @@
 .spinner {
   display: inline-block;
+  border: 2px solid var(--line-subtle, rgba(0, 0, 0, 0.12));
+  border-top-color: var(--accent-600, #2563eb);
   border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, 0.12);
-  border-top-color: var(--accent-600);
   animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
 }
 
 @keyframes spin {
@@ -11,3 +12,4 @@
     transform: rotate(360deg);
   }
 }
+

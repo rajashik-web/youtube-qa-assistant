@@ -1,4 +1,8 @@
-import { apiClient } from './client';
+import { apiClient, API_BASE_URL } from './client';
+
+export function getGoogleLoginUrl() {
+  return `${API_BASE_URL}/auth/google/login`;
+}
 
 /**
  * Returns the currently authenticated user, based on whatever token

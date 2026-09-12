@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { Play, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../api/client';
 import Spinner from '../components/common/Spinner';
@@ -28,48 +29,50 @@ function GoogleIcon() {
   );
 }
 
-// This app uses Google-only authentication — no email/password form, no
-// registration. "Continue with Google" handles both signup and login on
-// the backend (see auth_service.login_or_create_google_user).
 export default function LoginPage() {
   const { isAuthenticated, loading, sessionMessage, clearSessionMessage } = useAuth();
   const [searchParams] = useSearchParams();
   const oauthError = searchParams.get('error');
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Clear the one-time "session expired" notice once this page is left
-  // (either by continuing to Google, or by the auth guard sending the user
-  // straight to "/" because they turned out to already be authenticated).
   useEffect(() => () => clearSessionMessage(), [clearSessionMessage]);
 
   if (loading) {
     return (
       <div className={styles.wrap}>
-        <div className={styles.status}>
-          <Spinner size={18} />
-          <span>Loading…</span>
+        <div className={styles.card}>
+          <div className={styles.callbackStatus}>
+            <Spinner size={24} />
+            <span>Checking session…</span>
+          </div>
         </div>
       </div>
     );
   }
 
+  // Authenticated user: redirect to /app
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/app" replace />;
   }
 
   const handleContinueWithGoogle = () => {
     setIsRedirecting(true);
-    // Full browser navigation, not a fetch — the backend itself redirects
-    // to Google's consent screen (routers/auth.py: GET /auth/google/login).
+    // Real backend Google OAuth flow
     window.location.href = `${API_BASE_URL}/auth/google/login`;
   };
 
   return (
     <div className={styles.wrap}>
       <div className={styles.card}>
-        <div className={styles.brandMark}>
-          <img src="/logo.png" alt="" />
-        </div>
+        <Link to="/" className={styles.brandLink}>
+          <div className={styles.brandIcon} aria-hidden="true">
+            <Play size={16} fill="currentColor" />
+          </div>
+          <span className={styles.brandName}>
+            Reel<span className={styles.brandAccent}>.</span>
+          </span>
+        </Link>
+
         <h1 className={styles.title}>Welcome to Reel</h1>
         <p className={styles.body}>Ask questions about any YouTube video.</p>
 
@@ -81,11 +84,29 @@ export default function LoginPage() {
           className={styles.googleButton}
           onClick={handleContinueWithGoogle}
           disabled={isRedirecting}
+          aria-label="Continue with Google"
         >
-          {isRedirecting ? <Spinner size={16} /> : <GoogleIcon />}
-          {isRedirecting ? 'Redirecting…' : 'Continue with Google'}
+          {isRedirecting ? (
+            <>
+              <Spinner size={16} />
+              <span>Redirecting to Google…</span>
+            </>
+          ) : (
+            <>
+              <GoogleIcon />
+              <span>Continue with Google</span>
+            </>
+          )}
         </button>
+
+        <div className={styles.authInfoNotice}>
+          Single-sign on via Google. Reel accesses only your verified basic profile to identify your video library.
+        </div>
       </div>
+
+      <Link to="/" className={styles.backHomeLink}>
+        <ArrowLeft size={14} /> Back to homepage
+      </Link>
     </div>
   );
 }

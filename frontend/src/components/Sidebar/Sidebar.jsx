@@ -64,7 +64,7 @@ export default function Sidebar() {
     selectConversation,
     clearActiveConversation,
   } = useConversations();
-  const { openComposer, isMobileSidebarOpen, closeMobileSidebar } = useUI();
+  const { openComposer, closeComposer, isMobileSidebarOpen, closeMobileSidebar } = useUI();
   const { user, logout } = useAuth();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
@@ -89,11 +89,13 @@ export default function Sidebar() {
     // Clear the active conversation and any conversation-synced threads.
     // The first /ask request will auto-create a new conversation.
     clearActiveConversation();
+    closeComposer();
     closeMobileSidebar();
   };
 
   const handleSelectConversation = (conversationId) => {
     selectConversation(conversationId);
+    closeComposer();
     closeMobileSidebar();
   };
 
@@ -116,32 +118,31 @@ export default function Sidebar() {
             type="button"
             className={styles.mobileCloseButton}
             onClick={closeMobileSidebar}
-            aria-label="Close video library"
+            aria-label="Close sidebar"
           >
             ×
           </button>
         </div>
 
+        {/* ---- + New Chat Primary Action ---- */}
         <div className={styles.newVideoRow}>
-          <button type="button" className={styles.newVideoButton} onClick={handleNewVideo}>
+          <button
+            type="button"
+            className={styles.newVideoButton}
+            onClick={handleNewChat}
+            aria-label="Start a new chat"
+          >
             <PlusIcon />
-            New video
+            + New Chat
           </button>
         </div>
 
         {/* ---- Conversations section ---- */}
         <div className={styles.sectionHeader}>
           <span className={styles.sectionTitle}>Conversations</span>
-          <button
-            type="button"
-            className={styles.newChatButton}
-            onClick={handleNewChat}
-            aria-label="Start a new chat"
-            title="New chat"
-          >
-            <ChatIcon />
-            New chat
-          </button>
+          <span className={styles.itemCount}>
+            {conversations.length > 0 ? `(${conversations.length})` : ''}
+          </span>
         </div>
 
         <div className={styles.conversationListWrap}>
@@ -183,7 +184,17 @@ export default function Sidebar() {
 
         {/* ---- Video library section ---- */}
         <div className={styles.sectionHeader}>
-          <span className={styles.sectionTitle}>Videos</span>
+          <span className={styles.sectionTitle}>Video Library</span>
+          <button
+            type="button"
+            className={styles.newChatButton}
+            onClick={handleNewVideo}
+            aria-label="Add a YouTube video"
+            title="Add video"
+          >
+            <PlusIcon />
+            Add video
+          </button>
         </div>
 
         {videos.length > 0 && (
@@ -234,8 +245,8 @@ export default function Sidebar() {
 
           {libraryStatus === 'ready' && videos.length === 0 && (
             <div className={styles.stateBlock}>
-              <p className={styles.emptyTitle}>Your library is empty</p>
-              <p className={styles.emptyBody}>Add your first video to start asking questions.</p>
+              <p className={styles.emptyTitle}>No videos yet</p>
+              <p className={styles.emptyBody}>Add a YouTube video to start asking questions.</p>
             </div>
           )}
 

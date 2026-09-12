@@ -1,5 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  MessageSquare,
+  Sparkles,
+  Clock,
+  Archive,
+  Video,
+  ArrowRight,
+  Play,
+  CheckCircle2,
+  ExternalLink,
+  Search,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL } from '../api/client';
 import Spinner from '../components/common/Spinner';
@@ -28,95 +40,390 @@ function GoogleIcon() {
   );
 }
 
-// A minimal, ChatGPT-inspired public landing page.
-// Google-only authentication — no email/password form anywhere.
 export default function LandingPage() {
   const { isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // If already authenticated, go straight to the dashboard.
-  useEffect(() => {
-    if (!loading && isAuthenticated) {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [loading, isAuthenticated, navigate]);
-
   const handleContinueWithGoogle = () => {
+    if (isAuthenticated) {
+      navigate('/app');
+      return;
+    }
     setIsRedirecting(true);
-    // Full browser navigation — the backend itself redirects to Google.
     window.location.href = `${API_BASE_URL}/auth/google/login`;
   };
 
-  if (loading) {
-    return (
-      <div className={styles.wrap}>
-        <div className={styles.status}>
-          <Spinner size={18} />
-          <span>Loading…</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  const scrollToSection = (e, id) => {
+    e.preventDefault();
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   return (
-    <div className={styles.wrap}>
-      <div className={styles.inner}>
-        <div className={styles.brandRow}>
-          <div className={styles.brandMark} aria-hidden="true">
-            <img src="/logo.png" alt="" />
-          </div>
-          <span className={styles.brandName}>Reel</span>
+    <div className={styles.landing}>
+      {/* ---- Navigation ---- */}
+      <header className={styles.nav}>
+        <div className={styles.navContainer}>
+          <Link to="/" className={styles.brand}>
+            <div className={styles.brandIcon} aria-hidden="true">
+              <Play size={14} fill="currentColor" />
+            </div>
+            <span className={styles.brandName}>
+              Reel<span className={styles.brandAccent}>.</span>
+            </span>
+          </Link>
+
+          <nav className={styles.navLinks} aria-label="Main Navigation">
+            <a
+              href="#features"
+              className={styles.navLink}
+              onClick={(e) => scrollToSection(e, 'features')}
+            >
+              Features
+            </a>
+            <a
+              href="#how-it-works"
+              className={styles.navLink}
+              onClick={(e) => scrollToSection(e, 'how-it-works')}
+            >
+              How it works
+            </a>
+            {isAuthenticated ? (
+              <Link to="/app" className={styles.navCta}>
+                Open Workspace <ArrowRight size={14} />
+              </Link>
+            ) : (
+              <Link to="/login" className={styles.navLink}>
+                Sign in
+              </Link>
+            )}
+          </nav>
+        </div>
+      </header>
+
+      {/* ---- Hero Section ---- */}
+      <section className={styles.hero}>
+        <div className={styles.heroTag}>
+          <span className={styles.heroTagDot} aria-hidden="true" />
+          <span>YouTube Video Q&amp;A Assistant</span>
         </div>
 
-        <h1 className={styles.headline}>Ask anything about a YouTube video.</h1>
-        <p className={styles.subheadline}>Turn YouTube videos into an interactive conversation.</p>
+        <h1 className={styles.heroHeadline}>Talk to any YouTube video.</h1>
 
+        <p className={styles.heroSubtitle}>
+          Turn long videos into conversations. Ask questions, understand the content, and jump
+          directly to the source.
+        </p>
+
+        <div className={styles.heroCtas}>
+          <button
+            type="button"
+            className={styles.primaryCta}
+            onClick={handleContinueWithGoogle}
+            disabled={isRedirecting}
+          >
+            {isRedirecting ? (
+              <Spinner size={16} />
+            ) : isAuthenticated ? (
+              <>
+                Open Reel Workspace <ArrowRight size={16} />
+              </>
+            ) : (
+              <>
+                <GoogleIcon /> Continue with Google
+              </>
+            )}
+          </button>
+
+          <a
+            href="#how-it-works"
+            className={styles.secondaryCta}
+            onClick={(e) => scrollToSection(e, 'how-it-works')}
+          >
+            See how it works
+          </a>
+        </div>
+
+        {/* ---- Product Preview Mockup ---- */}
+        <div className={styles.previewWrapper} id="preview" aria-label="Reel Application Preview">
+          <div className={styles.previewBrowserBar}>
+            <div className={styles.previewDots}>
+              <span className={styles.previewDot} />
+              <span className={styles.previewDot} />
+              <span className={styles.previewDot} />
+            </div>
+            <div className={styles.previewUrlBar}>
+              <Search size={12} />
+              <span>app.reel.ai/workspace</span>
+            </div>
+          </div>
+
+          <div className={styles.previewBody}>
+            {/* Preview Left Sidebar */}
+            <div className={styles.previewSidebar}>
+              <div className={styles.previewSidebarBrand}>
+                <Play size={14} fill="currentColor" />
+                <span>Reel</span>
+              </div>
+
+              <div className={styles.previewNewChatBtn}>
+                <span>+</span>
+                <span>New Chat</span>
+              </div>
+
+              <div>
+                <p className={styles.previewSidebarSectionTitle}>Conversations</p>
+                <div className={`${styles.previewSidebarItem} ${styles.previewSidebarItemActive}`}>
+                  <MessageSquare size={13} />
+                  <span>Architecture deep dive</span>
+                </div>
+                <div className={styles.previewSidebarItem}>
+                  <MessageSquare size={13} />
+                  <span>Lecture takeaways</span>
+                </div>
+              </div>
+
+              <div>
+                <p className={styles.previewSidebarSectionTitle}>Video Library</p>
+                <div className={`${styles.previewSidebarItem} ${styles.previewSidebarItemActive}`}>
+                  <div className={styles.previewThumb}>
+                    <img
+                      src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=80&q=80"
+                      alt="AI Hardware Course"
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 600 }}>AI Hardware Course</div>
+                    <div style={{ fontSize: '11px', color: '#16a34a' }}>● Ready</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Preview Center/Right Workspace */}
+            <div className={styles.previewMain}>
+              <div className={styles.previewHeader}>
+                <div className={styles.previewHeaderVideo}>
+                  <div className={styles.previewThumb}>
+                    <img
+                      src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=80&q=80"
+                      alt=""
+                    />
+                  </div>
+                  <div>
+                    <div className={styles.previewHeaderTitle}>
+                      Applied Data Science &amp; Hardware
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-500)' }}>
+                      Stanford Seminar • 423 segments indexed
+                    </div>
+                  </div>
+                </div>
+                <span className={styles.previewStatusBadge}>
+                  <CheckCircle2 size={11} /> Ready
+                </span>
+              </div>
+
+              <div className={styles.previewChatFeed}>
+                <div className={styles.previewQuestion}>
+                  <span>What is this video about?</span>
+                </div>
+
+                <div className={styles.previewAnswerCard}>
+                  <div className={styles.previewAiAvatar}>R</div>
+                  <div className={styles.previewAnswerBody}>
+                    <p style={{ margin: 0, marginBottom: '8px' }}>
+                      This video explains modern neural network architectures and memory bandwidth
+                      trade-offs. The instructor breaks down why memory wall limitations dominate
+                      inference latency and walks through recent benchmark comparisons.
+                    </p>
+                    <div className={styles.previewSourcesRow}>
+                      <span className={styles.previewSourcesLabel}>Sources:</span>
+                      <span className={styles.previewSourceChip}>
+                        00:04 <ExternalLink size={10} />
+                      </span>
+                      <span className={styles.previewSourceChip}>
+                        01:12 <ExternalLink size={10} />
+                      </span>
+                      <span className={styles.previewSourceChip}>
+                        04:58 <ExternalLink size={10} />
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.previewComposer}>
+                <div className={styles.previewComposerBar}>
+                  <span>Ask anything about this video…</span>
+                  <div className={styles.previewSendBtn}>
+                    <ArrowRight size={13} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ---- Features Section ---- */}
+      <section className={styles.featuresSection} id="features">
+        <div className={styles.sectionHeader}>
+          <div className={styles.sectionEyebrow}>Core Capabilities</div>
+          <h2 className={styles.sectionTitle}>Everything you need to digest videos in seconds</h2>
+          <p className={styles.sectionDesc}>
+            Built specifically for lectures, podcasts, interviews, and deep tutorials that contain
+            hours of critical knowledge.
+          </p>
+        </div>
+
+        <div className={styles.featuresGrid}>
+          <div className={styles.featureCard}>
+            <div className={styles.featureIconBox}>
+              <MessageSquare size={20} />
+            </div>
+            <h3 className={styles.featureTitle}>1. Ask anything</h3>
+            <p className={styles.featureText}>
+              Ask questions about video content naturally. Reel searches transcript passages and
+              understands conversational nuance.
+            </p>
+          </div>
+
+          <div className={styles.featureCard}>
+            <div className={styles.featureIconBox}>
+              <Sparkles size={20} />
+            </div>
+            <h3 className={styles.featureTitle}>2. Grounded answers</h3>
+            <p className={styles.featureText}>
+              Answers are generated strictly from the processed video. No generic hallucinations or
+              unsupported assertions.
+            </p>
+          </div>
+
+          <div className={styles.featureCard}>
+            <div className={styles.featureIconBox}>
+              <Clock size={20} />
+            </div>
+            <h3 className={styles.featureTitle}>3. Timestamp sources</h3>
+            <p className={styles.featureText}>
+              Jump directly to relevant moments. Every claim links straight to the exact second in
+              the YouTube video.
+            </p>
+          </div>
+
+          <div className={styles.featureCard}>
+            <div className={styles.featureIconBox}>
+              <Archive size={20} />
+            </div>
+            <h3 className={styles.featureTitle}>4. Persistent conversations</h3>
+            <p className={styles.featureText}>
+              Continue conversations later. Your multi-turn dialogs are saved so you can pick up
+              your research anytime.
+            </p>
+          </div>
+
+          <div className={styles.featureCard}>
+            <div className={styles.featureIconBox}>
+              <Video size={20} />
+            </div>
+            <h3 className={styles.featureTitle}>5. Video library</h3>
+            <p className={styles.featureText}>
+              Keep processed videos organized in one unified workspace with title indexing and
+              quick access.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ---- How It Works Section ---- */}
+      <section className={styles.howSection} id="how-it-works">
+        <div className={styles.howContainer}>
+          <div className={styles.sectionHeader}>
+            <div className={styles.sectionEyebrow}>Process</div>
+            <h2 className={styles.sectionTitle}>How Reel works</h2>
+            <p className={styles.sectionDesc}>
+              Three simple steps to unlock deep video insights without scrubbing through hours of
+              footage.
+            </p>
+          </div>
+
+          <div className={styles.stepsGrid}>
+            <div className={styles.stepCard}>
+              <div className={styles.stepNumber}>01</div>
+              <h3 className={styles.stepTitle}>Paste a YouTube video</h3>
+              <p className={styles.stepDesc}>
+                Drop in any public YouTube video link. Reel retrieves metadata and prepares the
+                transcript for indexing.
+              </p>
+            </div>
+
+            <div className={styles.stepCard}>
+              <div className={styles.stepNumber}>02</div>
+              <h3 className={styles.stepTitle}>Reel processes it</h3>
+              <p className={styles.stepDesc}>
+                The content is segmented and indexed into vector embeddings for precision retrieval
+                and context alignment.
+              </p>
+            </div>
+
+            <div className={styles.stepCard}>
+              <div className={styles.stepNumber}>03</div>
+              <h3 className={styles.stepTitle}>Ask anything</h3>
+              <p className={styles.stepDesc}>
+                Get instantaneous, grounded answers with interactive timestamps linking to the
+                exact lecture segment.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ---- Final CTA Section ---- */}
+      <section className={styles.finalCtaSection}>
+        <h2 className={styles.finalCtaHeadline}>Start with Reel</h2>
+        <p className={styles.finalCtaSubtitle}>
+          Connect with your Google account to start processing videos and asking questions today.
+        </p>
         <button
           type="button"
-          className={styles.googleButton}
+          className={styles.primaryCta}
           onClick={handleContinueWithGoogle}
           disabled={isRedirecting}
         >
-          {isRedirecting ? <Spinner size={16} /> : <GoogleIcon />}
-          {isRedirecting ? 'Redirecting…' : 'Continue with Google'}
+          {isRedirecting ? (
+            <Spinner size={16} />
+          ) : isAuthenticated ? (
+            <>
+              Go to Workspace <ArrowRight size={16} />
+            </>
+          ) : (
+            <>
+              <GoogleIcon /> Continue with Google
+            </>
+          )}
         </button>
+      </section>
 
-        <p className={styles.explainer}>
-          Paste a YouTube video, let Reel process it, then ask questions and explore answers with
-          timestamped sources.
-        </p>
-
-        <div className={styles.flow}>
-          <div className={styles.flowStep}>
-            <span className={styles.flowIcon}>▶</span>
-            <span>YouTube video</span>
+      {/* ---- Footer ---- */}
+      <footer className={styles.footer}>
+        <div className={styles.footerContainer}>
+          <div className={styles.footerBrand}>
+            <div className={styles.brandIcon} aria-hidden="true" style={{ width: 22, height: 22 }}>
+              <Play size={10} fill="currentColor" />
+            </div>
+            <div>
+              <span className={styles.footerBrandName}>Reel</span>
+              <span className={styles.footerTagline}> — YouTube Video Q&amp;A Assistant</span>
+            </div>
           </div>
-          <span className={styles.flowArrow}>→</span>
-          <div className={styles.flowStep}>
-            <span className={styles.flowIcon}>⚙</span>
-            <span>AI processing</span>
-          </div>
-          <span className={styles.flowArrow}>→</span>
-          <div className={styles.flowStep}>
-            <span className={styles.flowIcon}>?</span>
-            <span>Ask questions</span>
-          </div>
-          <span className={styles.flowArrow}>→</span>
-          <div className={styles.flowStep}>
-            <span className={styles.flowIcon}>✓</span>
-            <span>Grounded answers + timestamps</span>
+          <div className={styles.footerMeta}>
+            Built with grounded transcripts &amp; precision timestamp indexing.
           </div>
         </div>
-
-        <Link to="/login" className={styles.loginLink}>
-          Already have an account? Log in
-        </Link>
-      </div>
+      </footer>
     </div>
   );
 }

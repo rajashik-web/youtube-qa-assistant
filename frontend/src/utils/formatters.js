@@ -1,51 +1,31 @@
 /**
- * Formats a duration in seconds as m:ss or h:mm:ss.
- * Falls back gracefully if a pre-formatted value already exists.
+ * Formatting utilities for timestamps and YouTube URLs.
  */
-export function formatTimestamp(seconds) {
-  if (seconds === null || seconds === undefined || Number.isNaN(Number(seconds))) return '0:00';
-  const total = Math.max(0, Math.floor(Number(seconds)));
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  const pad = (n) => String(n).padStart(2, '0');
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+
+/**
+ * Converts a total number of seconds into a human-readable "MM:SS" or
+ * "H:MM:SS" string. Returns "0:00" for null/undefined/NaN inputs.
+ */
+export function formatTimestamp(totalSeconds) {
+  const secs = Math.round(Number(totalSeconds));
+  if (!Number.isFinite(secs) || secs < 0) return "0:00";
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 /**
- * Relative "2h ago" style date formatting for library metadata.
+ * Builds a YouTube watch URL that starts playback at the given timestamp.
+ * Falls back to a plain watch URL when videoId or startTime is absent.
  */
-export function formatRelativeDate(isoString) {
-  if (!isoString) return '';
-  const date = new Date(isoString);
-  if (Number.isNaN(date.getTime())) return '';
-
-  const diffMs = Date.now() - date.getTime();
-  const diffSec = Math.round(diffMs / 1000);
-  const diffMin = Math.round(diffSec / 60);
-  const diffHr = Math.round(diffMin / 60);
-  const diffDay = Math.round(diffHr / 24);
-
-  if (diffSec < 45) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHr < 24) return `${diffHr}h ago`;
-  if (diffDay < 7) return `${diffDay}d ago`;
-
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-/**
- * Builds a YouTube URL that jumps to a specific second.
- */
-export function buildTimestampUrl(videoId, startTimeSeconds) {
-  const t = Math.max(0, Math.floor(Number(startTimeSeconds) || 0));
-  return `https://www.youtube.com/watch?v=${videoId}&t=${t}s`;
-}
-
-/**
- * Compact number formatting for chunk/segment counts (e.g. 1,204).
- */
-export function formatCount(n) {
-  if (n === null || n === undefined) return '—';
-  return Number(n).toLocaleString();
+export function buildTimestampUrl(videoId, startTime) {
+  if (!videoId) return "#";
+  const base = `https://www.youtube.com/watch?v=${videoId}`;
+  const t = Math.round(Number(startTime));
+  if (!Number.isFinite(t) || t <= 0) return base;
+  return `${base}&t=${t}s`;
 }

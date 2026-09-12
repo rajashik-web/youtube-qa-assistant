@@ -21,7 +21,7 @@ export default function MessageBubble({ message, videoId }) {
           {message.status === "loading" && (
             <div className={styles.messageLoading}>
               <Spinner size={15} />
-              <span>Reading the transcript…</span>
+              <span>Thinking…</span>
             </div>
           )}
 
