@@ -1,7 +1,7 @@
 import { apiClient, API_BASE_URL } from './client';
 
 export function getGoogleLoginUrl() {
-  return `${API_BASE_URL}/auth/google/login`;
+  return `${API_BASE_URL}/auth/google`;
 }
 
 /**

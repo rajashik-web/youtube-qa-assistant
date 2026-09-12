@@ -141,12 +141,6 @@ export default function MainPanel() {
   const { openMobileSidebar } = useUI();
   const threadEndRef = useRef(null);
 
-  const threadKey = selectedVideo
-    ? activeConversationId
-      ? null // use conversation key computed in ChatContext
-      : selectedVideo.video_id
-    : null;
-
   // Derive thread using the same key logic as ChatContext
   const activeConvKey = activeConversationId
     ? selectedVideo?.video_id || `__conv_${activeConversationId}`
@@ -210,7 +204,7 @@ export default function MainPanel() {
               <div className={styles.centerState}>
                 <Spinner size={24} />
                 <p>
-                  Processing this video… it'll be ready to chat with shortly.
+                  Processing this video… it&apos;ll be ready to chat with shortly.
                 </p>
               </div>
             )}

@@ -1,8 +1,12 @@
-/* App-level layout: sidebar + main panel side by side */
 .app {
   display: flex;
-  height: 100vh;
-  overflow: hidden;
-  background: var(--paper-50, #f8fafc);
+  height: 100%;
+  width: 100%;
+}
+
+@media (max-width: 860px) {
+  .app {
+    flex-direction: column;
+  }
 }
 

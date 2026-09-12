@@ -1,29 +1,26 @@
-import React, { createContext, useCallback, useContext, useState } from "react";
+import React, { createContext, useCallback, useContext, useState } from 'react';
 
 const UIContext = createContext(null);
 
 export function UIProvider({ children }) {
-  const [isComposerOpen, setIsComposerOpen] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isComposerOpen, setComposerOpen] = useState(false);
+  const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  const openComposer = useCallback(() => setIsComposerOpen(true), []);
-  const closeComposer = useCallback(() => setIsComposerOpen(false), []);
-  const toggleComposer = useCallback(() => setIsComposerOpen((v) => !v), []);
+  const openComposer = useCallback(() => setComposerOpen(true), []);
+  const closeComposer = useCallback(() => setComposerOpen(false), []);
 
-  const openMobileSidebar = useCallback(() => setIsMobileSidebarOpen(true), []);
-  const closeMobileSidebar = useCallback(
-    () => setIsMobileSidebarOpen(false),
-    [],
-  );
+  const openMobileSidebar = useCallback(() => setMobileSidebarOpen(true), []);
+  const closeMobileSidebar = useCallback(() => setMobileSidebarOpen(false), []);
+  const toggleMobileSidebar = useCallback(() => setMobileSidebarOpen((v) => !v), []);
 
   const value = {
     isComposerOpen,
     openComposer,
     closeComposer,
-    toggleComposer,
     isMobileSidebarOpen,
     openMobileSidebar,
     closeMobileSidebar,
+    toggleMobileSidebar,
   };
 
   return <UIContext.Provider value={value}>{children}</UIContext.Provider>;
@@ -31,6 +28,6 @@ export function UIProvider({ children }) {
 
 export function useUI() {
   const ctx = useContext(UIContext);
-  if (!ctx) throw new Error("useUI must be used within a UIProvider");
+  if (!ctx) throw new Error('useUI must be used within a UIProvider');
   return ctx;
 }

@@ -41,7 +41,7 @@ function GoogleIcon() {
 }
 
 export default function LandingPage() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
@@ -51,7 +51,8 @@ export default function LandingPage() {
       return;
     }
     setIsRedirecting(true);
-    window.location.href = `${API_BASE_URL}/auth/google/login`;
+    const backendUrl = (import.meta.env.VITE_API_BASE_URL || API_BASE_URL || '').replace(/\/+$/, '');
+    window.location.href = `${backendUrl}/auth/google`;
   };
 
   const scrollToSection = (e, id) => {

@@ -57,8 +57,8 @@ export default function LoginPage() {
 
   const handleContinueWithGoogle = () => {
     setIsRedirecting(true);
-    // Real backend Google OAuth flow
-    window.location.href = `${API_BASE_URL}/auth/google/login`;
+    const backendUrl = (import.meta.env.VITE_API_BASE_URL || API_BASE_URL || '').replace(/\/+$/, '');
+    window.location.href = `${backendUrl}/auth/google`;
   };
 
   return (
