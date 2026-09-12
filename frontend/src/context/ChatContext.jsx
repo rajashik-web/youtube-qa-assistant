@@ -1,6 +1,7 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { askQuestion } from '../api/questions';
 import { ApiError } from '../api/client';
+import { useConversations } from './ConversationContext';
 
 const ChatContext = createContext(null);
 
@@ -27,23 +28,117 @@ function isNoInformationFound(response) {
   return negativePatterns.some((p) => answer.includes(p));
 }
 
+/**
+ * Converts backend Message records ({ id, role, content, created_at }) into
+ * the display shape used by QAThread/MessageBubble.
+ *
+ * Backend messages are stored as separate user/assistant rows. We pair each
+ * user message with the following assistant message into a single display
+ * entry. Sources are NOT persisted by the backend, so reloaded conversations
+ * show answers without source chips (a backend limitation).
+ */
+export function convertBackendMessages(messages) {
+  const result = [];
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (msg.role !== 'user') continue;
+    const next = messages[i + 1];
+    if (next && next.role === 'assistant') {
+      result.push({
+        id: msg.id,
+        question: msg.content,
+        status: 'done',
+        answer: next.content,
+        sources: [],
+        notFound: false,
+        errorMessage: null,
+      });
+      i++; // skip the paired assistant message
+    } else {
+      result.push({
+        id: msg.id,
+        question: msg.content,
+        status: 'done',
+        answer: null,
+        sources: [],
+        notFound: false,
+        errorMessage: null,
+      });
+    }
+  }
+  return result;
+}
+
 export function ChatProvider({ children }) {
-  // { [videoId]: Array<Message> }
+  const {
+    activeConversationId,
+    messages: persistedMessages,
+    messagesStatus,
+    conversationVideoMap,
+    registerConversation,
+  } = useConversations();
+
+  // { [key]: Array<Message> }
+  // key is either a videoId (no active conversation, or conversation whose
+  // video is known) or `__conv_${conversationId}` (conversation whose video
+  // is unknown, e.g. after a page refresh).
   const [threads, setThreads] = useState({});
 
-  const appendMessage = useCallback((videoId, message) => {
-    setThreads((prev) => ({
-      ...prev,
-      [videoId]: [...(prev[videoId] || []), message],
-    }));
-  }, []);
+  // Determine the thread key for the active conversation, if any.
+  // Mirrors the logic in QAThread so appends always target the displayed thread.
+  const activeThreadKey = useMemo(() => {
+    if (!activeConversationId) return null;
+    const videoId = conversationVideoMap[activeConversationId];
+    return videoId || `__conv_${activeConversationId}`;
+  }, [activeConversationId, conversationVideoMap]);
 
-  const patchMessage = useCallback((videoId, messageId, patch) => {
-    setThreads((prev) => ({
-      ...prev,
-      [videoId]: (prev[videoId] || []).map((m) => (m.id === messageId ? { ...m, ...patch } : m)),
-    }));
-  }, []);
+  // Sync persisted messages into the thread when the active conversation's
+  // messages finish loading. This makes conversation history survive a
+  // page refresh — the backend is the source of truth.
+  useEffect(() => {
+    if (!activeConversationId || messagesStatus !== 'ready') return;
+    const videoId = conversationVideoMap[activeConversationId];
+    const key = videoId || `__conv_${activeConversationId}`;
+    const converted = convertBackendMessages(persistedMessages);
+    setThreads((prev) => ({ ...prev, [key]: converted }));
+  }, [activeConversationId, persistedMessages, messagesStatus, conversationVideoMap]);
+
+  // When the active conversation is cleared (New Chat, video switch, delete),
+  // drop any conversation-synced threads so stale history doesn't linger.
+  useEffect(() => {
+    if (activeConversationId) return;
+    setThreads((prev) => {
+      const next = {};
+      for (const [key, value] of Object.entries(prev)) {
+        if (!key.startsWith('__conv_')) {
+          next[key] = value;
+        }
+      }
+      return next;
+    });
+  }, [activeConversationId]);
+
+  const appendMessage = useCallback(
+    (videoId, message) => {
+      const key = activeThreadKey || videoId;
+      setThreads((prev) => ({
+        ...prev,
+        [key]: [...(prev[key] || []), message],
+      }));
+    },
+    [activeThreadKey]
+  );
+
+  const patchMessage = useCallback(
+    (videoId, messageId, patch) => {
+      const key = activeThreadKey || videoId;
+      setThreads((prev) => ({
+        ...prev,
+        [key]: (prev[key] || []).map((m) => (m.id === messageId ? { ...m, ...patch } : m)),
+      }));
+    },
+    [activeThreadKey]
+  );
 
   const askAboutVideo = useCallback(
     async (videoId, question) => {
@@ -59,7 +154,18 @@ export function ChatProvider({ children }) {
       });
 
       try {
-        const response = await askQuestion({ videoId, question });
+        // Pass the active conversation id (or null for the first question).
+        // The backend auto-creates the conversation and returns its id.
+        const response = await askQuestion({
+          videoId,
+          question,
+          conversationId: activeConversationId,
+        });
+
+        if (response?.conversation_id) {
+          registerConversation(response.conversation_id, videoId);
+        }
+
         const notFound = isNoInformationFound(response);
         patchMessage(videoId, messageId, {
           status: 'done',
@@ -72,14 +178,23 @@ export function ChatProvider({ children }) {
         patchMessage(videoId, messageId, { status: 'error', errorMessage: message });
       }
     },
-    [appendMessage, patchMessage]
+    [appendMessage, patchMessage, activeConversationId, registerConversation]
   );
 
   const retryMessage = useCallback(
     async (videoId, messageId, question) => {
       patchMessage(videoId, messageId, { status: 'loading', errorMessage: null });
       try {
-        const response = await askQuestion({ videoId, question });
+        const response = await askQuestion({
+          videoId,
+          question,
+          conversationId: activeConversationId,
+        });
+
+        if (response?.conversation_id) {
+          registerConversation(response.conversation_id, videoId);
+        }
+
         const notFound = isNoInformationFound(response);
         patchMessage(videoId, messageId, {
           status: 'done',
@@ -92,12 +207,20 @@ export function ChatProvider({ children }) {
         patchMessage(videoId, messageId, { status: 'error', errorMessage: message });
       }
     },
-    [patchMessage]
+    [patchMessage, activeConversationId, registerConversation]
   );
 
-  const getThread = useCallback((videoId) => threads[videoId] || [], [threads]);
+  const getThread = useCallback((key) => threads[key] || [], [threads]);
 
-  const value = { askAboutVideo, retryMessage, getThread };
+  const clearThread = useCallback((key) => {
+    setThreads((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  const value = { askAboutVideo, retryMessage, getThread, clearThread };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }

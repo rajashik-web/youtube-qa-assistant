@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import VideoLibraryItem from './VideoLibraryItem';
+import ConversationItem from './ConversationItem';
 import Spinner from '../common/Spinner';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
+import { useConversations } from '../../context/ConversationContext';
 import { useUI } from '../../context/UIContext';
+import { useAuth } from '../../context/AuthContext';
 import { VIDEO_STATUS } from '../../utils/constants';
 import styles from './Sidebar.module.css';
 
@@ -21,9 +24,48 @@ function PlusIcon() {
   );
 }
 
+function ChatIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
+      <path
+        d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none">
+      <path
+        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function Sidebar() {
   const { videos, libraryStatus, libraryError, fetchVideos, selectedVideoId } = useVideoLibrary();
+  const {
+    conversations,
+    conversationsStatus,
+    conversationsError,
+    loadConversations,
+    activeConversationId,
+    selectConversation,
+    clearActiveConversation,
+  } = useConversations();
   const { openComposer, isMobileSidebarOpen, closeMobileSidebar } = useUI();
+  const { user, logout } = useAuth();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
 
@@ -43,6 +85,18 @@ export default function Sidebar() {
     closeMobileSidebar();
   };
 
+  const handleNewChat = () => {
+    // Clear the active conversation and any conversation-synced threads.
+    // The first /ask request will auto-create a new conversation.
+    clearActiveConversation();
+    closeMobileSidebar();
+  };
+
+  const handleSelectConversation = (conversationId) => {
+    selectConversation(conversationId);
+    closeMobileSidebar();
+  };
+
   return (
     <>
       {isMobileSidebarOpen && (
@@ -56,7 +110,7 @@ export default function Sidebar() {
           </div>
           <div>
             <h1 className={styles.brandName}>Reel</h1>
-            <p className={styles.brandSubtitle}>Video Q&amp;A</p>
+            <p className={styles.brandSubtitle}>Video Q&A</p>
           </div>
           <button
             type="button"
@@ -73,6 +127,63 @@ export default function Sidebar() {
             <PlusIcon />
             New video
           </button>
+        </div>
+
+        {/* ---- Conversations section ---- */}
+        <div className={styles.sectionHeader}>
+          <span className={styles.sectionTitle}>Conversations</span>
+          <button
+            type="button"
+            className={styles.newChatButton}
+            onClick={handleNewChat}
+            aria-label="Start a new chat"
+            title="New chat"
+          >
+            <ChatIcon />
+            New chat
+          </button>
+        </div>
+
+        <div className={styles.conversationListWrap}>
+          {conversationsStatus === 'loading' && (
+            <div className={styles.stateBlock}>
+              <Spinner size={16} />
+              <p>Loading conversations…</p>
+            </div>
+          )}
+
+          {conversationsStatus === 'error' && (
+            <div className={styles.stateBlock}>
+              <p className={styles.stateError}>{conversationsError}</p>
+              <button type="button" className={styles.retryButton} onClick={loadConversations}>
+                Try again
+              </button>
+            </div>
+          )}
+
+          {conversationsStatus === 'ready' && conversations.length === 0 && (
+            <div className={styles.stateBlock}>
+              <p className={styles.emptyBody}>No conversations yet. Ask a question to get started.</p>
+            </div>
+          )}
+
+          {conversations.length > 0 && (
+            <ul className={styles.conversationList}>
+              {conversations.map((conversation) => (
+                <ConversationItem
+                  key={conversation.id}
+                  conversation={conversation}
+                  isActive={conversation.id === activeConversationId}
+                  onSelect={() => handleSelectConversation(conversation.id)}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* ---- Video library section ---- */}
+        <div className={styles.sectionHeader}>
+          <span className={styles.sectionTitle}>Videos</span>
         </div>
 
         {videos.length > 0 && (
@@ -141,6 +252,25 @@ export default function Sidebar() {
               ))}
             </ul>
           )}
+        </div>
+
+        <div className={styles.accountFooter}>
+          <div className={styles.accountInfo}>
+            <div className={styles.accountAvatar} aria-hidden="true">
+              {(user?.username || user?.email || '?').charAt(0).toUpperCase()}
+            </div>
+            <div className={styles.accountText}>
+              <p className={styles.accountName} title={user?.username}>
+                {user?.username || 'Account'}
+              </p>
+              <p className={styles.accountEmail} title={user?.email}>
+                {user?.email}
+              </p>
+            </div>
+          </div>
+          <button type="button" className={styles.logoutButton} onClick={logout} aria-label="Log out">
+            <LogoutIcon />
+          </button>
         </div>
       </aside>
     </>

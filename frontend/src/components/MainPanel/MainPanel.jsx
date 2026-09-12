@@ -3,6 +3,7 @@ import UrlComposer from './UrlComposer';
 import VideoHeader from './VideoHeader';
 import QAThread from './QAThread';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
+import { useConversations } from '../../context/ConversationContext';
 import { useUI } from '../../context/UIContext';
 import styles from './MainPanel.module.css';
 
@@ -16,11 +17,22 @@ function MenuIcon() {
 
 export default function MainPanel() {
   const { selectedVideo, videos } = useVideoLibrary();
+  const { activeConversation, conversationVideoMap } = useConversations();
   const { isComposerOpen, closeComposer, toggleMobileSidebar } = useUI();
 
   const hasVideos = videos.length > 0;
   const showComposer = isComposerOpen || !selectedVideo;
   const canReturnToVideo = showComposer && !!selectedVideo;
+
+  // Determine which video the active conversation belongs to.
+  // The backend Conversation/Message models have no video_id, so we use the
+  // client-side mapping (conversationVideoMap) when available. If the map is
+  // missing (e.g. after a page refresh), we pass null so QAThread falls back
+  // to the `__conv_${id}` thread key — the conversation is still viewable,
+  // but we don't pretend it belongs to the currently selected video.
+  const activeConversationVideoId = activeConversation
+    ? conversationVideoMap[activeConversation.id] || null
+    : null;
 
   return (
     <main className={styles.main}>
@@ -33,7 +45,9 @@ export default function MainPanel() {
         >
           <MenuIcon />
         </button>
-        <span className={styles.mobileBarTitle}>{selectedVideo && !showComposer ? selectedVideo.title : 'Reel'}</span>
+        <span className={styles.mobileBarTitle}>
+          {selectedVideo && !showComposer ? selectedVideo.title : 'Reel'}
+        </span>
       </div>
 
       {showComposer ? (
@@ -41,7 +55,7 @@ export default function MainPanel() {
       ) : (
         <div className={styles.workspace}>
           <VideoHeader video={selectedVideo} />
-          <QAThread video={selectedVideo} />
+          <QAThread video={selectedVideo} activeConversationVideoId={activeConversationVideoId} />
         </div>
       )}
     </main>

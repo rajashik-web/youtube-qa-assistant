@@ -3,6 +3,7 @@ import { deleteVideo as apiDeleteVideo, getVideoStatus, getVideos, processVideo 
 import { ApiError } from '../api/client';
 import { VIDEO_STATUS, POLL_INTERVAL_MS, MAX_POLL_ATTEMPTS } from '../utils/constants';
 import { useToast } from './ToastContext';
+import { useAuth } from './AuthContext';
 
 const VideoLibraryContext = createContext(null);
 
@@ -49,6 +50,8 @@ function reducer(state, action) {
     }
     case 'SELECT_VIDEO':
       return { ...state, selectedVideoId: action.videoId };
+    case 'RESET':
+      return { ...initialState };
     default:
       return state;
   }
@@ -57,6 +60,7 @@ function reducer(state, action) {
 export function VideoLibraryProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const toast = useToast();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const pollRegistry = useRef(new Map()); // video_id -> { intervalId, attempts }
 
   const stopPolling = useCallback((videoId) => {
@@ -65,6 +69,11 @@ export function VideoLibraryProvider({ children }) {
       clearInterval(entry.intervalId);
       pollRegistry.current.delete(videoId);
     }
+  }, []);
+
+  const stopAllPolling = useCallback(() => {
+    pollRegistry.current.forEach((entry) => clearInterval(entry.intervalId));
+    pollRegistry.current.clear();
   }, []);
 
   const startPolling = useCallback(
@@ -138,8 +147,20 @@ export function VideoLibraryProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    fetchVideos();
-  }, [fetchVideos]);
+    // Wait until auth initialization has resolved (avoids firing GET
+    // /videos before we know whether there's a valid token at all).
+    if (authLoading) return;
+
+    if (isAuthenticated) {
+      fetchVideos();
+    } else {
+      // Logged out (or never logged in): stop any in-flight status polling
+      // and drop whatever video state we were holding — none of it is
+      // valid for a different (or no) user.
+      stopAllPolling();
+      dispatch({ type: 'RESET' });
+    }
+  }, [isAuthenticated, authLoading, fetchVideos, stopAllPolling]);
 
   const addVideo = useCallback(
     async (url, { forceReprocess = false } = {}) => {

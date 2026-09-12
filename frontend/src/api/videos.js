@@ -10,11 +10,12 @@ export function processVideo({ url, forceReprocess = false }, opts) {
 
 /**
  * Returns the processed video library. Supports pagination and status filtering.
+ * Backend contract: GET /videos?limit=&offset=&status=
  */
-export function getVideos({ page = 1, pageSize = 50, status } = {}, opts) {
+export function getVideos({ limit = 50, offset = 0, status } = {}, opts) {
   return apiClient.get('/videos', {
     ...opts,
-    params: { page, page_size: pageSize, status },
+    params: { limit, offset, status },
   });
 }
 

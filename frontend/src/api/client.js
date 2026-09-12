@@ -3,10 +3,13 @@
  *
  * Responsibilities:
  *  - Resolve the backend base URL from environment configuration.
- *  - Attach consistent headers / JSON handling.
+ *  - Attach consistent headers / JSON handling, including the JWT
+ *    Authorization header when a token is present.
  *  - Normalize every failure into an ApiError so UI code never has to
  *    branch on fetch's quirks (network failure vs. HTTP error vs. bad JSON).
  */
+
+import { getToken, clearToken } from '../utils/tokenStorage';
 
 const RAW_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -53,6 +56,8 @@ function friendlyMessageFor(status, backendMessage) {
   switch (status) {
     case 400:
       return backendMessage || "That request doesn't look right. Double-check the details and try again.";
+    case 401:
+      return backendMessage || 'Your session has expired. Please log in again.';
     case 404:
       return "We couldn't find that. It may have been removed.";
     case 408:
@@ -89,10 +94,15 @@ async function request(path, { method = 'GET', body, signal, params } = {}) {
 
   let response;
   try {
+    const headers = {};
+    if (body) headers['Content-Type'] = 'application/json';
+    const token = getToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     response = await fetch(url, {
       method,
       signal,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch (err) {
@@ -117,6 +127,18 @@ async function request(path, { method = 'GET', body, signal, params } = {}) {
 
   if (!response.ok) {
     const backendMessage = extractErrorMessage(payload, null);
+
+    if (response.status === 401) {
+      // The token is missing/invalid/expired. Clear it centrally here so
+      // every caller gets a consistent, immediate cleanup — and notify the
+      // rest of the app (AuthContext) so in-memory auth state doesn't go
+      // stale. Routing/redirects are deliberately NOT handled here yet.
+      clearToken();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('auth:unauthorized'));
+      }
+    }
+
     throw new ApiError(friendlyMessageFor(response.status, backendMessage), {
       status: response.status,
       code: `HTTP_${response.status}`,
@@ -129,5 +151,6 @@ async function request(path, { method = 'GET', body, signal, params } = {}) {
 export const apiClient = {
   get: (path, opts) => request(path, { ...opts, method: 'GET' }),
   post: (path, body, opts) => request(path, { ...opts, method: 'POST', body }),
+  patch: (path, body, opts) => request(path, { ...opts, method: 'PATCH', body }),
   delete: (path, opts) => request(path, { ...opts, method: 'DELETE' }),
 };

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import StatusDot from '../common/StatusDot';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
+import { useConversations } from '../../context/ConversationContext';
 import { useUI } from '../../context/UIContext';
 import { useToast } from '../../context/ToastContext';
 import { ApiError } from '../../api/client';
@@ -11,6 +12,7 @@ import styles from './Sidebar.module.css';
 
 export default function VideoLibraryItem({ video, isSelected }) {
   const { selectVideo, removeVideo, reprocessVideo } = useVideoLibrary();
+  const { clearActiveConversation } = useConversations();
   const { closeComposer, closeMobileSidebar } = useUI();
   const toast = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -66,6 +68,11 @@ export default function VideoLibraryItem({ video, isSelected }) {
           className={`${styles.item} ${isSelected ? styles.itemSelected : ''}`}
           onClick={() => {
             selectVideo(video.video_id);
+            // Switching videos clears the active conversation so questions
+            // are never sent into an unrelated conversation. The backend
+            // Conversation model has no video_id, so this client-side rule
+            // keeps the UI predictable: each video starts a fresh chat.
+            clearActiveConversation();
             closeComposer();
             closeMobileSidebar();
           }}

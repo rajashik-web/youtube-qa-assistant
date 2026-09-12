@@ -5,7 +5,9 @@ import styles from './MainPanel.module.css';
 export default function SourceChip({ source, videoId }) {
   const start = source.start_time_formatted || formatTimestamp(source.start_time);
   const end = source.end_time_formatted || formatTimestamp(source.end_time);
-  const href = source.youtube_url || buildTimestampUrl(videoId, source.start_time);
+  // Backend field is `url` (see schemas/question.py SourceResponse). Fall
+  // back to reconstructing it only if the backend ever omits it.
+  const href = source.url || buildTimestampUrl(videoId, source.start_time);
 
   return (
     <a href={href} target="_blank" rel="noopener noreferrer" className={styles.sourceChip}>
