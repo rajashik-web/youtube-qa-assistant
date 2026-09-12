@@ -34,7 +34,7 @@ router = APIRouter(
 # --------------------------------
 
 @router.post(
-    "/process-video",
+    "/videos/process",
     response_model=ProcessVideoResponse,
 )
 def process_video(
@@ -127,7 +127,7 @@ def get_all_videos(
 # --------------------------------
 
 @router.get(
-    "/video/{video_id}/status",
+    "/videos/{video_id}/status",
     response_model=VideoStatusResponse,
 )
 def get_video_status(
@@ -167,7 +167,7 @@ def get_video_status(
 # --------------------------------
 
 @router.delete(
-    "/video/{video_id}",
+    "/videos/{video_id}",
 )
 def delete_video(
     video_id: str,

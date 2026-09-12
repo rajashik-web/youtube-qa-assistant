@@ -12,10 +12,10 @@ export function getVideos(opts) {
  */
 export function processVideo({ url, forceReprocess = false }, opts) {
   return apiClient.post(
-    "/videos/process",
-    { url, force_reprocess: forceReprocess },
-    opts,
-  );
+  "/videos/process",
+  { url, force_reprocess: forceReprocess },
+  opts,
+);
 }
 
 /**

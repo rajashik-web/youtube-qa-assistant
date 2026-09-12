@@ -52,7 +52,7 @@ export default function LandingPage() {
     }
     setIsRedirecting(true);
     const backendUrl = (import.meta.env.VITE_API_BASE_URL || API_BASE_URL || '').replace(/\/+$/, '');
-    window.location.href = `${backendUrl}/auth/google`;
+    window.location.href = `${API_BASE_URL}/auth/google/login`;
   };
 
   const scrollToSection = (e, id) => {
