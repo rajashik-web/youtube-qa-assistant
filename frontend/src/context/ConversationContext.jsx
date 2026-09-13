@@ -81,17 +81,34 @@ function reducer(state, action) {
       const conversation = action.conversation;
       const exists = state.conversations.some((c) => c.id === conversation.id);
       const conversations = exists
-        ? state.conversations.map((c) => (c.id === conversation.id ? { ...c, ...conversation } : c))
+        ? state.conversations.map((c) =>
+            c.id === conversation.id
+              ? {
+                  ...c,
+                  ...conversation,
+                  title: conversation.title || c.title,
+                }
+              : c
+          )
         : [conversation, ...state.conversations];
       return {
         ...state,
+        conversationsStatus: 'ready',
         conversations,
         activeConversationId: conversation.id,
-        activeConversation: conversation,
-        conversationVideoMap: {
-          ...state.conversationVideoMap,
-          [conversation.id]: action.videoId,
-        },
+        activeConversation: exists
+          ? {
+              ...state.activeConversation,
+              ...conversation,
+              title: conversation.title || state.activeConversation?.title,
+            }
+          : conversation,
+        conversationVideoMap: action.videoId
+          ? {
+              ...state.conversationVideoMap,
+              [conversation.id]: action.videoId,
+            }
+          : state.conversationVideoMap,
       };
     }
     case 'CONVERSATION_UPDATED': {
@@ -258,7 +275,7 @@ export function ConversationProvider({ children }) {
   }, []);
 
   const registerConversation = useCallback(
-    (conversationId, videoId) => {
+    (conversationId, videoId, initialTitle = null) => {
       // The /ask endpoint auto-creates the conversation. We add a minimal
       // entry locally and refresh the list to get the auto-generated title.
       const now = new Date().toISOString();
@@ -266,7 +283,7 @@ export function ConversationProvider({ children }) {
         type: 'CONVERSATION_CREATED',
         conversation: {
           id: conversationId,
-          title: null,
+          title: initialTitle,
           created_at: now,
           updated_at: now,
         },

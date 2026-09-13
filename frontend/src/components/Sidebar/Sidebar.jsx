@@ -1,9 +1,12 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import VideoLibraryItem from './VideoLibraryItem';
 import ConversationItem from './ConversationItem';
 import Spinner from '../common/Spinner';
+import Modal from '../common/Modal';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
 import { useConversations } from '../../context/ConversationContext';
+import { useChat } from '../../context/ChatContext';
 import { useUI } from '../../context/UIContext';
 import { useAuth } from '../../context/AuthContext';
 import { VIDEO_STATUS } from '../../utils/constants';
@@ -39,6 +42,7 @@ function LogoutIcon() {
 }
 
 export default function Sidebar() {
+  const navigate = useNavigate();
   const { videos, libraryStatus, libraryError, fetchVideos, selectedVideoId } = useVideoLibrary();
   const {
     conversations,
@@ -49,10 +53,12 @@ export default function Sidebar() {
     selectConversation,
     clearActiveConversation,
   } = useConversations();
+  const { clearThread } = useChat();
   const { openComposer, closeComposer, isMobileSidebarOpen, closeMobileSidebar } = useUI();
   const { user, logout } = useAuth();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const filteredVideos = useMemo(() => {
     return videos.filter((v) => {
@@ -71,9 +77,10 @@ export default function Sidebar() {
   };
 
   const handleNewChat = () => {
-    // Clear the active conversation and any conversation-synced threads.
-    // The first /ask request will auto-create a new conversation.
     clearActiveConversation();
+    if (selectedVideoId) {
+      clearThread(`draft_${selectedVideoId}`);
+    }
     closeComposer();
     closeMobileSidebar();
   };
@@ -82,6 +89,12 @@ export default function Sidebar() {
     selectConversation(conversationId);
     closeComposer();
     closeMobileSidebar();
+  };
+
+  const handleConfirmLogout = () => {
+    setIsLogoutModalOpen(false);
+    logout();
+    navigate('/', { replace: true });
   };
 
   return (
@@ -166,6 +179,9 @@ export default function Sidebar() {
             </ul>
           )}
         </div>
+
+        {/* ---- Visual separation divider ---- */}
+        <div className={styles.sectionDivider} />
 
         {/* ---- Video library section ---- */}
         <div className={styles.sectionHeader}>
@@ -264,11 +280,29 @@ export default function Sidebar() {
               </p>
             </div>
           </div>
-          <button type="button" className={styles.logoutButton} onClick={logout} aria-label="Log out">
+          <button
+            type="button"
+            className={styles.logoutButton}
+            onClick={() => setIsLogoutModalOpen(true)}
+            aria-label="Log out"
+            title="Sign out"
+          >
             <LogoutIcon />
           </button>
         </div>
       </aside>
+
+      <Modal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        title="Sign out?"
+        confirmLabel="Sign out"
+        cancelLabel="Cancel"
+        isDestructive
+        onConfirm={handleConfirmLogout}
+      >
+        <p>Are you sure you want to sign out of Reel?</p>
+      </Modal>
     </>
   );
 }

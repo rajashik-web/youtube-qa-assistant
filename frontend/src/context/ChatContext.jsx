@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { askQuestion } from '../api/questions';
 import { ApiError } from '../api/client';
 import { useConversations } from './ConversationContext';
@@ -74,76 +74,31 @@ export function ChatProvider({ children }) {
     activeConversationId,
     messages: persistedMessages,
     messagesStatus,
-    conversationVideoMap,
     registerConversation,
   } = useConversations();
 
   // { [key]: Array<Message> }
-  // key is either a videoId (no active conversation, or conversation whose
-  // video is known) or `__conv_${conversationId}` (conversation whose video
-  // is unknown, e.g. after a page refresh).
+  // Keys:
+  // - `conv_${conversationId}` for conversations
+  // - `draft_${videoId}` for drafts / new chat sessions
   const [threads, setThreads] = useState({});
 
-  // Determine the thread key for the active conversation, if any.
-  // Mirrors the logic in QAThread so appends always target the displayed thread.
-  const activeThreadKey = useMemo(() => {
-    if (!activeConversationId) return null;
-    const videoId = conversationVideoMap[activeConversationId];
-    return videoId || `__conv_${activeConversationId}`;
-  }, [activeConversationId, conversationVideoMap]);
-
   // Sync persisted messages into the thread when the active conversation's
-  // messages finish loading. This makes conversation history survive a
-  // page refresh — the backend is the source of truth.
+  // messages finish loading.
   useEffect(() => {
     if (!activeConversationId || messagesStatus !== 'ready') return;
-    const videoId = conversationVideoMap[activeConversationId];
-    const key = videoId || `__conv_${activeConversationId}`;
+    const key = `conv_${activeConversationId}`;
     const converted = convertBackendMessages(persistedMessages);
     setThreads((prev) => ({ ...prev, [key]: converted }));
-  }, [activeConversationId, persistedMessages, messagesStatus, conversationVideoMap]);
-
-  // When the active conversation is cleared (New Chat, video switch, delete),
-  // drop any conversation-synced threads so stale history doesn't linger.
-  useEffect(() => {
-    if (activeConversationId) return;
-    setThreads((prev) => {
-      const next = {};
-      for (const [key, value] of Object.entries(prev)) {
-        if (!key.startsWith('__conv_')) {
-          next[key] = value;
-        }
-      }
-      return next;
-    });
-  }, [activeConversationId]);
-
-  const appendMessage = useCallback(
-    (videoId, message) => {
-      const key = activeThreadKey || videoId;
-      setThreads((prev) => ({
-        ...prev,
-        [key]: [...(prev[key] || []), message],
-      }));
-    },
-    [activeThreadKey]
-  );
-
-  const patchMessage = useCallback(
-    (videoId, messageId, patch) => {
-      const key = activeThreadKey || videoId;
-      setThreads((prev) => ({
-        ...prev,
-        [key]: (prev[key] || []).map((m) => (m.id === messageId ? { ...m, ...patch } : m)),
-      }));
-    },
-    [activeThreadKey]
-  );
+  }, [activeConversationId, persistedMessages, messagesStatus]);
 
   const askAboutVideo = useCallback(
     async (videoId, question) => {
       const messageId = ++messageIdCounter;
-      appendMessage(videoId, {
+      const currentConvId = activeConversationId;
+      const key = currentConvId ? `conv_${currentConvId}` : `draft_${videoId}`;
+
+      const pendingMessage = {
         id: messageId,
         question,
         status: 'loading',
@@ -151,63 +106,127 @@ export function ChatProvider({ children }) {
         sources: [],
         notFound: false,
         errorMessage: null,
-      });
+      };
+
+      setThreads((prev) => ({
+        ...prev,
+        [key]: [...(prev[key] || []), pendingMessage],
+      }));
 
       try {
-        // Pass the active conversation id (or null for the first question).
-        // The backend auto-creates the conversation and returns its id.
         const response = await askQuestion({
           videoId,
           question,
-          conversationId: activeConversationId,
+          conversationId: currentConvId,
         });
 
-        if (response?.conversation_id) {
-          registerConversation(response.conversation_id, videoId);
-        }
-
         const notFound = isNoInformationFound(response);
-        patchMessage(videoId, messageId, {
+        const resolvedMessage = {
+          id: messageId,
+          question,
           status: 'done',
           answer: response?.answer || '',
           sources: Array.isArray(response?.sources) ? response.sources : [],
           notFound,
-        });
+          errorMessage: null,
+        };
+
+        if (response?.conversation_id && !currentConvId) {
+          const newConvId = response.conversation_id;
+          setThreads((prev) => {
+            const draftList = prev[`draft_${videoId}`] || [];
+            const updated = draftList.map((m) => (m.id === messageId ? resolvedMessage : m));
+            const next = { ...prev };
+            delete next[`draft_${videoId}`];
+            next[`conv_${newConvId}`] = updated.length > 0 ? updated : [resolvedMessage];
+            return next;
+          });
+          const initialTitle = question.length > 40 ? `${question.slice(0, 40)}…` : question;
+          registerConversation(newConvId, videoId, initialTitle);
+        } else {
+          const targetKey = currentConvId ? `conv_${currentConvId}` : key;
+          setThreads((prev) => ({
+            ...prev,
+            [targetKey]: (prev[targetKey] || []).map((m) =>
+              m.id === messageId ? resolvedMessage : m
+            ),
+          }));
+        }
       } catch (err) {
         const message = err instanceof ApiError ? err.message : 'Something went wrong answering that question.';
-        patchMessage(videoId, messageId, { status: 'error', errorMessage: message });
+        setThreads((prev) => ({
+          ...prev,
+          [key]: (prev[key] || []).map((m) =>
+            m.id === messageId ? { ...m, status: 'error', errorMessage: message } : m
+          ),
+        }));
       }
     },
-    [appendMessage, patchMessage, activeConversationId, registerConversation]
+    [activeConversationId, registerConversation]
   );
 
   const retryMessage = useCallback(
     async (videoId, messageId, question) => {
-      patchMessage(videoId, messageId, { status: 'loading', errorMessage: null });
+      const currentConvId = activeConversationId;
+      const key = currentConvId ? `conv_${currentConvId}` : `draft_${videoId}`;
+
+      setThreads((prev) => ({
+        ...prev,
+        [key]: (prev[key] || []).map((m) =>
+          m.id === messageId ? { ...m, status: 'loading', errorMessage: null } : m
+        ),
+      }));
+
       try {
         const response = await askQuestion({
           videoId,
           question,
-          conversationId: activeConversationId,
+          conversationId: currentConvId,
         });
 
-        if (response?.conversation_id) {
-          registerConversation(response.conversation_id, videoId);
-        }
-
         const notFound = isNoInformationFound(response);
-        patchMessage(videoId, messageId, {
+        const resolvedMessage = {
+          id: messageId,
+          question,
           status: 'done',
           answer: response?.answer || '',
           sources: Array.isArray(response?.sources) ? response.sources : [],
           notFound,
-        });
+          errorMessage: null,
+        };
+
+        if (response?.conversation_id && !currentConvId) {
+          const newConvId = response.conversation_id;
+          setThreads((prev) => {
+            const draftList = prev[`draft_${videoId}`] || [];
+            const updated = draftList.map((m) => (m.id === messageId ? resolvedMessage : m));
+            const next = { ...prev };
+            delete next[`draft_${videoId}`];
+            next[`conv_${newConvId}`] = updated.length > 0 ? updated : [resolvedMessage];
+            return next;
+          });
+          const initialTitle = question.length > 40 ? `${question.slice(0, 40)}…` : question;
+          registerConversation(newConvId, videoId, initialTitle);
+        } else {
+          const targetKey = currentConvId ? `conv_${currentConvId}` : key;
+          setThreads((prev) => ({
+            ...prev,
+            [targetKey]: (prev[targetKey] || []).map((m) =>
+              m.id === messageId ? resolvedMessage : m
+            ),
+          }));
+        }
       } catch (err) {
         const message = err instanceof ApiError ? err.message : 'Something went wrong answering that question.';
-        patchMessage(videoId, messageId, { status: 'error', errorMessage: message });
+        setThreads((prev) => ({
+          ...prev,
+          [key]: (prev[key] || []).map((m) =>
+            m.id === messageId ? { ...m, status: 'error', errorMessage: message } : m
+          ),
+        }));
       }
     },
-    [patchMessage, activeConversationId, registerConversation]
+    [activeConversationId, registerConversation]
   );
 
   const getThread = useCallback((key) => threads[key] || [], [threads]);

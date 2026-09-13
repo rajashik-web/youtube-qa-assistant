@@ -41,6 +41,10 @@
   --danger-600: #dc2626;
   --danger-100: #fee2e2;
 
+  /* ---- Focus & borders ---- */
+  --focus-border: #64748b;
+  --focus-ring: rgba(100, 116, 139, 0.15);
+
   /* ---- Typography ---- */
   --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;

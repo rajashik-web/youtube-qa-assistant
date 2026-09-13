@@ -12,22 +12,22 @@ export function getVideos(opts) {
  */
 export function processVideo({ url, forceReprocess = false }, opts) {
   return apiClient.post(
-  "/videos/process",
-  { url, force_reprocess: forceReprocess },
-  opts,
-);
+    "/process-video",
+    { url, force_reprocess: forceReprocess },
+    opts,
+  );
 }
 
 /**
  * Fetch the current processing status of a specific video.
  */
 export function getVideoStatus(videoId, opts) {
-  return apiClient.get(`/videos/${videoId}/status`, opts);
+  return apiClient.get(`/video/${videoId}/status`, opts);
 }
 
 /**
  * Delete a video from the library.
  */
 export function deleteVideo(videoId, opts) {
-  return apiClient.delete(`/videos/${videoId}`, opts);
+  return apiClient.delete(`/video/${videoId}`, opts);
 }

@@ -143,8 +143,8 @@ export default function MainPanel() {
 
   // Derive thread using the same key logic as ChatContext
   const activeConvKey = activeConversationId
-    ? selectedVideo?.video_id || `__conv_${activeConversationId}`
-    : selectedVideo?.video_id;
+    ? `conv_${activeConversationId}`
+    : `draft_${selectedVideo?.video_id || 'default'}`;
 
   const thread = activeConvKey ? getThread(activeConvKey) : [];
 
