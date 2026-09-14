@@ -134,7 +134,7 @@ function VideoHeader({ video, onAddVideo }) {
 }
 
 export default function MainPanel() {
-  const { selectedVideo, libraryStatus } = useVideoLibrary();
+  const { selectedVideo, libraryStatus, reprocessVideo } = useVideoLibrary();
   const { activeConversationId } = useConversations();
   const { isComposerOpen, openComposer, closeComposer } = useUI();
   const { getThread } = useChat();
@@ -212,9 +212,21 @@ export default function MainPanel() {
             {isFailed && (
               <div className={styles.centerState}>
                 <p className={styles.errorText}>
-                  This video failed to process. You can try again by adding it
-                  again.
+                  This video failed to process.
                 </p>
+                <button
+                  type="button"
+                  className={styles.retryLink}
+                  style={{ marginTop: '8px', cursor: 'pointer' }}
+                  onClick={() =>
+                    reprocessVideo(
+                      selectedVideo.video_id,
+                      selectedVideo.url || `https://www.youtube.com/watch?v=${selectedVideo.video_id}`
+                    )
+                  }
+                >
+                  Retry processing video
+                </button>
               </div>
             )}
 

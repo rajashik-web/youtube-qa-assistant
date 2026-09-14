@@ -96,9 +96,14 @@ export default function LandingPage() {
                 Open Workspace <ArrowRight size={14} />
               </Link>
             ) : (
-              <Link to="/login" className={styles.navLink}>
-                Sign in
-              </Link>
+              <>
+                <Link to="/login" className={styles.navLink}>
+                  Sign in
+                </Link>
+                <Link to="/register" className={styles.navCta}>
+                  Get Started
+                </Link>
+              </>
             )}
           </nav>
         </div>
@@ -137,6 +142,12 @@ export default function LandingPage() {
               </>
             )}
           </button>
+
+          {!isAuthenticated && (
+            <Link to="/register" className={styles.secondaryCta}>
+              Sign up with Email
+            </Link>
+          )}
 
           <a
             href="#how-it-works"
@@ -385,26 +396,33 @@ export default function LandingPage() {
       <section className={styles.finalCtaSection}>
         <h2 className={styles.finalCtaHeadline}>Start with Reel</h2>
         <p className={styles.finalCtaSubtitle}>
-          Connect with your Google account to start processing videos and asking questions today.
+          Connect with your Google account or email to start processing videos and asking questions today.
         </p>
-        <button
-          type="button"
-          className={styles.primaryCta}
-          onClick={handleContinueWithGoogle}
-          disabled={isRedirecting}
-        >
-          {isRedirecting ? (
-            <Spinner size={16} />
-          ) : isAuthenticated ? (
-            <>
-              Go to Workspace <ArrowRight size={16} />
-            </>
-          ) : (
-            <>
-              <GoogleIcon /> Continue with Google
-            </>
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={styles.primaryCta}
+            onClick={handleContinueWithGoogle}
+            disabled={isRedirecting}
+          >
+            {isRedirecting ? (
+              <Spinner size={16} />
+            ) : isAuthenticated ? (
+              <>
+                Go to Workspace <ArrowRight size={16} />
+              </>
+            ) : (
+              <>
+                <GoogleIcon /> Continue with Google
+              </>
+            )}
+          </button>
+          {!isAuthenticated && (
+            <Link to="/register" className={styles.secondaryCta}>
+              Sign up with Email
+            </Link>
           )}
-        </button>
+        </div>
       </section>
 
       {/* ---- Footer ---- */}

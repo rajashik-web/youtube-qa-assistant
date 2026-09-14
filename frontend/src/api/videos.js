@@ -7,10 +7,14 @@ export function getVideos(opts) {
   return apiClient.get("/videos", opts);
 }
 
+export const listVideos = getVideos;
+
 /**
  * Submit a YouTube URL for processing (or re-processing).
  */
-export function processVideo({ url, forceReprocess = false }, opts) {
+export function processVideo(arg, opts) {
+  const { url, forceReprocess = false } =
+    typeof arg === "string" ? { url: arg, forceReprocess: false } : arg || {};
   return apiClient.post(
     "/process-video",
     { url, force_reprocess: forceReprocess },

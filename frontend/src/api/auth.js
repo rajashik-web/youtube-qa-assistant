@@ -1,0 +1,38 @@
+import { apiClient, API_BASE_URL } from './client';
+
+export function getGoogleLoginUrl() {
+  return `${API_BASE_URL}/auth/google/login`;
+}
+
+/**
+ * Returns the currently authenticated user based on the active token.
+ * Throws ApiError with status 401 if invalid/expired.
+ */
+export function getCurrentUser(opts) {
+  return apiClient.get('/auth/me', opts);
+}
+
+/**
+ * Sign in using email and password credentials.
+ * Backend contract: POST /auth/login
+ */
+export function loginWithCredentials({ email, password }, opts) {
+  return apiClient.post('/auth/login', { email, password }, opts);
+}
+
+/**
+ * Register a new user with email and password credentials.
+ * Backend contract: POST /auth/register
+ */
+export function registerWithCredentials({ email, password, username }, opts) {
+  return apiClient.post('/auth/register', { email, password, username }, opts);
+}
+
+/**
+ * Refresh an existing authentication token.
+ * Backend contract: POST /auth/refresh
+ */
+export function refreshToken(opts) {
+  return apiClient.post('/auth/refresh', {}, opts);
+}
+

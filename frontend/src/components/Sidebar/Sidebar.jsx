@@ -93,6 +93,10 @@ export default function Sidebar() {
 
   const handleConfirmLogout = () => {
     setIsLogoutModalOpen(false);
+    clearActiveConversation();
+    if (selectedVideoId) {
+      clearThread(`draft_${selectedVideoId}`);
+    }
     logout();
     navigate('/', { replace: true });
   };
@@ -295,13 +299,13 @@ export default function Sidebar() {
       <Modal
         isOpen={isLogoutModalOpen}
         onClose={() => setIsLogoutModalOpen(false)}
-        title="Sign out?"
-        confirmLabel="Sign out"
+        title="Log out?"
+        confirmLabel="Log out"
         cancelLabel="Cancel"
         isDestructive
         onConfirm={handleConfirmLogout}
       >
-        <p>Are you sure you want to sign out of Reel?</p>
+        <p>Are you sure you want to log out?</p>
       </Modal>
     </>
   );

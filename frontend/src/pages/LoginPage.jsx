@@ -29,10 +29,16 @@ function GoogleIcon() {
   );
 }
 
-export default function LoginPage() {
-  const { isAuthenticated, loading, sessionMessage, clearSessionMessage } = useAuth();
+export default function LoginPage({ initialMode = 'login' }) {
+  const { isAuthenticated, loading, sessionMessage, clearSessionMessage, login, register } = useAuth();
   const [searchParams] = useSearchParams();
   const oauthError = searchParams.get('error');
+  const [mode, setMode] = useState(initialMode);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => () => clearSessionMessage(), [clearSessionMessage]);
@@ -60,6 +66,35 @@ export default function LoginPage() {
     window.location.href = `${API_BASE_URL}/auth/google/login`;
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    setFormError(null);
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setFormError('Please enter a valid email address.');
+      return;
+    }
+    if (!password || password.length < 6) {
+      setFormError('Password must be at least 6 characters.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      if (mode === 'register') {
+        await register({ email: cleanEmail, password, username: username.trim() || undefined });
+      } else {
+        await login({ email: cleanEmail, password });
+      }
+    } catch (err) {
+      setFormError(err?.message || 'Authentication failed. Please verify your credentials.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className={styles.wrap}>
       <div className={styles.card}>
@@ -72,17 +107,24 @@ export default function LoginPage() {
           </span>
         </Link>
 
-        <h1 className={styles.title}>Welcome to Reel</h1>
-        <p className={styles.body}>Ask questions about any YouTube video.</p>
+        <h1 className={styles.title}>
+          {mode === 'register' ? 'Create an account' : 'Welcome to Reel'}
+        </h1>
+        <p className={styles.body}>
+          {mode === 'register'
+            ? 'Sign up to start organizing and asking questions about YouTube videos.'
+            : 'Ask questions about any YouTube video.'}
+        </p>
 
         {sessionMessage && <p className={styles.notice}>{sessionMessage}</p>}
         {oauthError && <p className={styles.errorNotice}>{oauthError}</p>}
+        {formError && <p className={styles.errorNotice}>{formError}</p>}
 
         <button
           type="button"
           className={styles.googleButton}
           onClick={handleContinueWithGoogle}
-          disabled={isRedirecting}
+          disabled={isRedirecting || isSubmitting}
           aria-label="Continue with Google"
         >
           {isRedirecting ? (
@@ -98,8 +140,114 @@ export default function LoginPage() {
           )}
         </button>
 
+        <div className={styles.divider}>or with email</div>
+
+        <form className={styles.authForm} onSubmit={handleSubmit} noValidate>
+          {mode === 'register' && (
+            <div className={styles.formGroup}>
+              <label className={styles.label} htmlFor="auth-username">
+                Full Name (optional)
+              </label>
+              <input
+                id="auth-username"
+                type="text"
+                className={styles.input}
+                placeholder="Ashik Raj"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={isSubmitting || isRedirecting}
+              />
+            </div>
+          )}
+
+          <div className={styles.formGroup}>
+            <label className={styles.label} htmlFor="auth-email">
+              Email address
+            </label>
+            <input
+              id="auth-email"
+              type="email"
+              className={styles.input}
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (formError) setFormError(null);
+              }}
+              disabled={isSubmitting || isRedirecting}
+              required
+            />
+          </div>
+
+          <div className={styles.formGroup}>
+            <label className={styles.label} htmlFor="auth-password">
+              Password
+            </label>
+            <input
+              id="auth-password"
+              type="password"
+              className={styles.input}
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (formError) setFormError(null);
+              }}
+              disabled={isSubmitting || isRedirecting}
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            className={styles.submitButton}
+            disabled={isSubmitting || isRedirecting}
+          >
+            {isSubmitting ? (
+              <>
+                <Spinner size={16} />
+                <span>{mode === 'register' ? 'Creating account…' : 'Signing in…'}</span>
+              </>
+            ) : (
+              <span>{mode === 'register' ? 'Create account' : 'Sign in'}</span>
+            )}
+          </button>
+        </form>
+
+        <div className={styles.modeToggle}>
+          {mode === 'register' ? (
+            <span>
+              Already have an account?
+              <button
+                type="button"
+                className={styles.toggleBtn}
+                onClick={() => {
+                  setMode('login');
+                  setFormError(null);
+                }}
+              >
+                Sign in
+              </button>
+            </span>
+          ) : (
+            <span>
+              Don&apos;t have an account?
+              <button
+                type="button"
+                className={styles.toggleBtn}
+                onClick={() => {
+                  setMode('register');
+                  setFormError(null);
+                }}
+              >
+                Create one
+              </button>
+            </span>
+          )}
+        </div>
+
         <div className={styles.authInfoNotice}>
-          Single-sign on via Google. Reel accesses only your verified basic profile to identify your video library.
+          Single-sign on via Google or email. Reel accesses only your verified basic profile to identify your video library.
         </div>
       </div>
 
