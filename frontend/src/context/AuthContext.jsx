@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { getCurrentUser, loginWithCredentials, registerWithCredentials, refreshToken } from '../api/auth';
 import { getToken, setToken as persistToken, clearToken } from '../utils/tokenStorage';
+import { apiClient } from '../api/client';
 
 const AuthContext = createContext(null);
 
@@ -33,16 +34,17 @@ export function AuthProvider({ children }) {
     }
 
     setTokenState(storedToken);
+    apiClient.setToken(storedToken);
 
     try {
       const me = await getCurrentUser();
       setUser(me);
       setAuthStatus('authenticated');
     } catch {
-      // Token missing/invalid/expired (401) or unreachable backend — either
-      // way we can't trust it. api/client.js already clears it from storage
-      // on a 401; clear it here too in case this failed for another reason.
+      // Token missing/invalid/expired or an unreachable backend means the
+      // session cannot be trusted.
       clearToken();
+      apiClient.clearToken();
       setTokenState(null);
       setUser(null);
       setAuthStatus('unauthenticated');
@@ -54,21 +56,23 @@ export function AuthProvider({ children }) {
     restoreSession();
   }, [restoreSession]);
 
-  // A 401 from ANY request (dispatched centrally by api/client.js) means
-  // the token is no longer valid. Storage is already cleared by client.js;
-  // this keeps in-memory auth state in sync and surfaces a friendly
+  // A 401 from ANY request is dispatched centrally by apiClient. This keeps
+  // persisted and in-memory auth state in sync and surfaces a friendly
   // "session expired" message on the next /login render. ProtectedRoute
   // reacts to isAuthenticated becoming false and redirects there itself —
   // this handler does not navigate, avoiding any redirect-loop risk.
   useEffect(() => {
     const onUnauthorized = () => {
+      clearToken();
+      apiClient.clearToken();
       setTokenState(null);
       setUser(null);
       setAuthStatus('unauthenticated');
       setSessionMessage('Your session has expired. Please sign in again.');
     };
-    window.addEventListener('auth:unauthorized', onUnauthorized);
-    return () => window.removeEventListener('auth:unauthorized', onUnauthorized);
+
+    apiClient.onUnauthorized(onUnauthorized);
+    return () => apiClient.onUnauthorized(null);
   }, []);
 
   /**
@@ -82,6 +86,7 @@ export function AuthProvider({ children }) {
    */
   const completeOAuthLogin = useCallback(async (rawToken) => {
     persistToken(rawToken);
+    apiClient.setToken(rawToken);
     setTokenState(rawToken);
 
     try {
@@ -92,6 +97,7 @@ export function AuthProvider({ children }) {
       return me;
     } catch (err) {
       clearToken();
+      apiClient.clearToken();
       setTokenState(null);
       setUser(null);
       setAuthStatus('unauthenticated');
@@ -106,6 +112,7 @@ export function AuthProvider({ children }) {
       throw new Error('No access token returned by server.');
     }
     persistToken(rawToken);
+    apiClient.setToken(rawToken);
     setTokenState(rawToken);
     if (res.user) {
       setUser(res.user);
@@ -121,25 +128,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   const register = useCallback(async ({ email, password, username }) => {
-    const res = await registerWithCredentials({ email, password, username });
-    const rawToken = res?.access_token || res?.token;
-    if (!rawToken) {
-      throw new Error('No access token returned by server.');
-    }
-    persistToken(rawToken);
-    setTokenState(rawToken);
-    if (res.user) {
-      setUser(res.user);
-      setAuthStatus('authenticated');
-      setSessionMessage(null);
-      return res.user;
-    }
-    const me = await getCurrentUser();
-    setUser(me);
-    setAuthStatus('authenticated');
-    setSessionMessage(null);
-    return me;
-  }, []);
+    await registerWithCredentials({ email, password, username });
+    return login({ email, password });
+  }, [login]);
 
   const refreshSession = useCallback(async () => {
     try {
@@ -147,6 +138,7 @@ export function AuthProvider({ children }) {
       const rawToken = res?.access_token || res?.token;
       if (rawToken) {
         persistToken(rawToken);
+        apiClient.setToken(rawToken);
         setTokenState(rawToken);
       }
     } catch {
@@ -156,6 +148,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     clearToken();
+    apiClient.clearToken();
     setTokenState(null);
     setUser(null);
     setAuthStatus('unauthenticated');
